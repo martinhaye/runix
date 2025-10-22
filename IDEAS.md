@@ -13,13 +13,17 @@ Decisions:
 
 ## In-line strings
 
-Nobody seems to have a really good use for `BRK` xx. Even I struggle to find a good use for it given the overhead of intercepting and parsing. So, let's use it for strings!
+Nobody seems to have a really good use for `BRK` xx. Even I struggle to find a good use for it given the overhead of intercepting and parsing. So, let's use it for strings! They're not generally used in fast operations anyhow.
 
-Encoding:
-- `00 C1 C2 C3 00` - Print a 3-char string "ABC" (hi-bit ascii, zero-terminated)
-- `00 03 C1 C2 C3` - Push pointer to pascal-style length prefixed string "ABC" (up to 127 chars)
+Print
+```
+  lda #1
+  ldx #2
+  PRINT "Foo %x"   ; prints "Foo $201"
+  ; encoding: `00 C6 EF EF A0 A5 F8 00`
+```
 
-When printed (first form), the string can contain a single printf-style code from this list:
+The string is allowed to contain a single printf-style code from this list:
 - `%x` to print '$' and A/X in hex
 - `%d` to print A/X in decimal
 - `%c` to print A as a char
@@ -27,37 +31,55 @@ When printed (first form), the string can contain a single printf-style code fro
    - Pascal-style length-prefixed if first byte < $80
    - Zero-terminted if first byte >= $80
 
+Load
+```
+  LDSTR "Foobar"  ; points A/X to 6-byte len prefixed string "Foobar"
+  ; encoding: `00 06 C6 EF EF E2 E1 F2`
+```
+
 ## Filesystem
+
+### Format
 
 Let's keep it super simple.
 - Block 0 starts with magic:
    `B1 D2 F5 EE E9 F8`   - which spells "1Runix" and also disassembles cleanly and executes harmlessly
-- Block $0000 continues with the loader
-- Block $0001 holds the root directory's first block
-- Blocks $0002-$FFFF hold data files (and additional dir blocks as needed)
-- First directory block:
-  - 2-byte first free block #
-  - then regular directory blk below
+- Block  $0000 continues with the loader
+- Blocks $0001.0004 hold the root dir, about 100 entries if 20 bytes each
+- Blocks $0005.FFFF hold data files and subdirs
+- Directories are always 4 blks ($800) long, about 100 entries
 - Directory block format:
-  - 2-byte number of next dir block (zero for none)
+  - root dir is blk 1, so that's how you can tell if you're at the root
+  - starts with 2-byte next-free-blk (if root), or parent dir blk (if not root)
   - followed by the entries themselves
 - Directory entry format:
   - 1-byte name length (0 if no more in this block)
-        - future idea: hi-bit set if subdirectory
   - file name in hi-bit ascii
-  - 2-byte start block
-  - 1-byte count of blocks
+  - 2-byte start block of file
+  - 2-byte length of file - special $F800 if directory
 
-Algorithm for allocating a new file:
+### Algorithm for allocating a new file
 1. Read root dir block, grab the free block number, bump it, write back
-2. Iterate to find last dir block
-3. Check for space in the dir block. If none, allocate a new dir block (going back to the root to inc free blk num)
-4. Add the entry and write the dir block
+2. Iterate to find last block in cur dir with any entries
+3. If entry would fit there, add it, write, done
+4. Advance to next blk. If we would exceed 4 blks, abort.
 
-Naming conventions
-* Runes are named e.g. "Rune01-description" where 01 is the rune number in hex
+### FS naming conventions
+* In general we'll use unix-style lowercase filenames
+* Runes are stored in a subdirectory off root called "runes"
+* Runes are named e.g. "01-description" where 01 is the rune number in hex
 * Rune 01 stubs are at $C10; Rune 02 stubs at $C20, etc.
-* "Rune00-system" is the system init. The boot loader looks for this and runs it.
+* "00-system" is the system/startup rune. The boot loader looks for this and runs it.
 
-Future
-- subdirectories might be useful, but would have to track CWD
+### Implementing `pwd`
+* Track the block num of the current subdir
+* `pwd` will be an executable in bin/. It can use parent dir traversal and matching up the block numbers to figure out the path.
+
+## Memory management
+
+* We'll allocate on a byte granularity (not page)
+* No freeing of individual memory blocks - must reset everything and reload (but could have limited support for using things that are already in the right place)
+* Runes will load starting at $D00 and build upward.
+    * This means rune 00 - the kernel - will always be at $D00.
+* Apps and their buffers will start at $BFFF and build downward.
+    * Later I might figure out how to start at $FFC0 and build downward, but mon support would have to be copied or bank-switched.
