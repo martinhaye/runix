@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Editor files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Assembly intermediate files
+*.o
+*.lst
+*.map
