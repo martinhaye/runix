@@ -43,10 +43,12 @@ Load
 
 Let's keep it super simple.
 - Block 0 starts with magic:
-   `B1 D2 F5 EE E9 F8`   - which spells "1Runix" and also disassembles cleanly and executes harmlessly
+   `01 D2 F5 EE E9 F8`   - which spells "\1Runix" and also disassembles cleanly,
+   executes harmlessly, and is even Apple II compatible.
 - Block  $0000 continues with the loader
-- Blocks $0001.0004 hold the root dir, about 100 entries if 20 bytes each
-- Blocks $0005.FFFF hold data files and subdirs
+- Blocks $0001.0004 hold the root dir, about 100 entries if 20 bytes each. First file
+  must be "runix.kernel" for it to be bootable/usable.
+- Blocks $0005.FFFF hold data files and subdirs. First subdir is usually "runes".
 - Directories are always 4 blks ($800) long, about 100 entries
 - Directory block format:
   - root dir is blk 1, so that's how you can tell if you're at the root
@@ -56,7 +58,15 @@ Let's keep it super simple.
   - 1-byte name length (0 if no more in this block)
   - file name in hi-bit ascii
   - 2-byte start block of file
-  - 2-byte length of file - special $F800 if directory
+  - 1-byte length of file in pages - special $F8 if directory
+
+### Boot process
+1. Floppy booted by Apple /// - loads first blk to $A000 and jumps to it
+2. Scan slots for mass storage card, highest slot to lowest. Record slot found.
+3. Load block 0 at $800 and jump to it.
+4. Blk 0 code: load block 1, and verify first file is "runix.kernel"
+5. Read kernel blocks starting at $E00
+6. Jump to kernel
 
 ### Algorithm for allocating a new file
 1. Read root dir block, grab the free block number, bump it, write back
@@ -77,9 +87,21 @@ Let's keep it super simple.
 
 ## Memory management
 
-* We'll allocate on a byte granularity (not page)
-* No freeing of individual memory blocks - must reset everything and reload (but could have limited support for using things that are already in the right place)
-* Runes will load starting at $D00 and build upward.
-    * This means rune 00 - the kernel - will always be at $D00.
-* Apps and their buffers will start at $BFFF and build downward.
-    * Later I might figure out how to start at $FFC0 and build downward, but mon support would have to be copied or bank-switched.
+* Rune jumps are at $C00.DFF, 32 bytes per rune x 16 runes
+  * This allows up to 10 APIs per rune
+  * e.g. Rune00 - $C00, Rune01 - $C20, Rune02 - $C40, etc.
+* Runes will be allocated in the system bank in the following areas:
+  * 0E00.1FFF
+  * A000.BFFF
+  * D000.EFFF
+  (saving Cxxx and Fxxx for I/O and ROM)
+* We'll allocate memory on a page granularity (not block, not byte)
+  * but be sure the next page is free if reading an odd # of pages
+* No freeing of individual memory allocations - must reset everything and reload 
+  * (but maybe in future support reusing things that are already in the right place)
+* Might as well put Rune 00 at $E00; no compelling advantage elsewhere.
+* Runes (except 00) load at variable address, so will be subject to initial relocation
+* Regular binaries will load at $6000, no relocation needed
+  * bank 1 - (graphics, or free for app use)
+  * bank 2 - app
+  * bank 3 - shell

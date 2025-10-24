@@ -12,6 +12,47 @@ curdirblk = *+1			; last-read directory block
 cwdblk	= *+1			; current working directory
 	ora $2222
 
+.proc runeinit
+	; start with kernelend .. $2000
+	lda #>kernelend
+	sta nextrunepg
+	lda #$20
+	sta limitrunepg
+	rts
+.endproc
+
+; Allocate pages for a rune
+; In:  Y - number of pages
+; Out: Y - allocated page
+.proc runealloc
+	tya			; page count
+	clc			; round up to full blks for scan
+	adc #1
+	and #$FE
+	sta @chkfor
+@loop:	lda limitrunepg
+	sec
+	sbc nextrunepg		; calculate how many remain in this area
+	cmp @chkfor
+	bcc @next
+	lda lastrunepg
+	tax			; save page to allocate
+	tya			; retrieve real # pages
+	clc
+	adc nextrunepg		; bump up the next rune pg
+	sta nextrunepg
+	rts
+@next:	lda limitrunepg
+	cmp #$20
+	bne @out
+	; Exhausted the space up to $2000; switch to $A000.BFFF
+	lda #$A0
+	sta nextrunepg
+	lda #$C0
+	sta limitrunepg
+	bne @loop		; always taken
+@out:	fatal "out of rune space"
+
 ; Read a directory block to dirbuf; use cached blk if same as last time.
 ; In:
 ;	A/X - block num to read
@@ -34,7 +75,8 @@ cwdblk	= *+1			; current working directory
 ; 	Y - 0 for exact, $80 for wildcard at end
 ; Out:
 ;	clc on success, sec if not found
-;	A/X - pointer to blknum (2-byte) and len (2-byte)
+;	A/X - blk num
+;	Y - length in pages
 .proc scanfile
 @fname	= ptmp1		; len 2
 @pscan	= ptmp2		; len 2
@@ -86,15 +128,23 @@ cwdblk	= *+1			; current working directory
 	sec		; 	+1 gets us to @blknum
 	adc @pscan
 	tay
-	lda @pscan+1	; ptr to blk and len in A/X
-	adc #0
+	bcc :+
+	inc @pscan+1
+:	ldy #0
+	lda (@pscan),y	; blk num lo
+	pha
+	iny
+	lda (@pscan),y	; blk num hi
 	tax
-	tya
-	clc
+	iny	
+	lda (@pscan),y	; length in pages
+	tay
+	pla		; get blk num lo back
+	clc		; signal success
 	rts
 @skip:	lda @nmlen
 	clc
-	adc #5		; adjust past len byte itself, plus @blknum and filelen
+	adc #4		; adjust past len byte itself, plus @blknum and filelen
 	adc @pscan
 	sta @pscan
 	bcc @ckent
