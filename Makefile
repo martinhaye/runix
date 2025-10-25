@@ -9,12 +9,18 @@ LDFLAGS = -C $(LDCFG)
 CA65FLAGS = -t none
 PYTHON = python3
 MKIMG = ./mkrunix.py
+MDNS_CHECK = ./mdns_chk.py
+RSYNC = rsync -a --inplace
 
 # Suppress ld65 alignment warnings (expected for raw binary output)
 LINK = @$(LD65) $(LDFLAGS) -o $@ $< 2>&1 | grep -v "isn't aligned properly" || true
 
 # Build directory
 BUILD = build
+
+# Deployment settings
+DISKSERVER = diskserver.local
+DEPLOY_TARGET = $(DISKSERVER):/srv/apple2_share/editor.2mg
 
 # Source files
 BOOT_SRC = src/boot/boot.s
@@ -35,9 +41,15 @@ DEMO_BINS = $(patsubst src/demos/%.s,$(BUILD)/demos/%.bin,$(DEMO_SRC))
 # Final disk image
 IMAGE = $(BUILD)/runix.2mg
 
-.PHONY: all clean dirs
+.PHONY: all clean dirs deploy
 
 all: $(IMAGE)
+	@echo "Checking for presence of disk server."; \
+	if $(PYTHON) $(MDNS_CHECK) $(DISKSERVER) >/dev/null 2>&1; then \
+		echo "Disk server found, deploying..."; \
+		$(RSYNC) $(IMAGE) $(DEPLOY_TARGET); \
+		echo "Deployed to $(DEPLOY_TARGET)"; \
+	fi
 
 # Create build directories
 dirs:
@@ -70,6 +82,17 @@ $(BUILD)/demos/%.o: src/demos/%.s | dirs
 $(IMAGE): $(BOOT_BIN) $(KERNEL_BIN) $(RUNE_BINS) $(SHELL_BIN) $(BIN_BINS) $(DEMO_BINS)
 	$(PYTHON) $(MKIMG) $(BUILD) $(IMAGE)
 
+# Deploy to disk server (can be run manually)
+deploy: $(IMAGE)
+	@if $(PYTHON) $(MDNS_CHECK) $(DISKSERVER) >/dev/null 2>&1; then \
+		echo "Deploying to $(DEPLOY_TARGET)..."; \
+		$(RSYNC) $(IMAGE) $(DEPLOY_TARGET); \
+		echo "Deployed successfully"; \
+	else \
+		echo "ERROR: Disk server $(DISKSERVER) not found on network"; \
+		exit 1; \
+	fi
+
 clean:
 	rm -rf $(BUILD)
 
@@ -78,6 +101,7 @@ help:
 	@echo "Runix Build System"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all (default) - Build all modules and create disk image"
+	@echo "  all (default) - Build disk image and auto-deploy if server is available"
+	@echo "  deploy        - Deploy disk image to $(DISKSERVER) (fails if not found)"
 	@echo "  clean         - Remove all build artifacts"
 	@echo "  help          - Show this help message"

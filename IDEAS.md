@@ -11,6 +11,7 @@ Decisions:
 - Rune00 vectors are obviously for system essentials - read/write block, read file, etc.
 - Relocator won't use a fixup table, but will iterate the code and fix in place.
   - therefore, all code needs to be disassemble-clean (no invalid ops, inline buffers, etc.)
+- Going to store strings and chars in lo-bit ASCII for easier generation from modern tools (e.g. ca65)
 
 ## In-line strings
 
