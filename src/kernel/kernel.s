@@ -9,19 +9,18 @@ txtptro	= $F4
 ;*****************************************************************************
 .proc startup
 	jsr clrscr
-@lup:	jsr bascalc
-	ldy cursy
-	lda cursy
-	clc
-	adc #$C1
-	sta (txtptre),y
-	inc cursy
-	lda cursy
-	cmp #24
+@lup:	lda $E000
+	jsr cout
+	inc @lup+1
 	bne @lup
-	jmp *		; hang the system for now
+	inc @lup+2
+	bne @lup
+	jmp *	; hang for now
 .endproc
 
+;*****************************************************************************
+sety:	sta cursy
+	; fall into bascalc...
 ;*****************************************************************************
 .proc bascalc
 ; Calculate base address for a text row
@@ -76,8 +75,7 @@ txtptro	= $F4
 ; leaves with cursx=0, cursy=0
 	lda #0
 	sta cursx
-@loop:	sta cursy
-	jsr bascalc
+@loop:	jsr sety
 	jsr clreol
 	lda cursy
 	clc
@@ -85,11 +83,58 @@ txtptro	= $F4
 	cmp #24
 	bne @loop
 	lda #0
-	sta cursy
+	jmp sety
+.endproc
+
+;*****************************************************************************
+.proc cout
+; Write one character to the text screen. Advances cursx (and cursy if end of
+; line)
+; In:	A - char to write (hi bit ignored)
+; Out:	For speed, does *not* preserve registers
+	ldy cursx
+	cmp #$D
+	beq crout
+	ora #$80
+	sta (txtptre),y
+	iny
+	cpy #40
+	sty cursx
+	beq crout
 	rts
 .endproc
 
 ;*****************************************************************************
+.proc crout
+; Advance to start of next line - scrolls if end of screen reached.
+; Trashes all regs
+	lda #0
+	sta cursx
+	inc cursy
+	lda cursy
+	cmp #24
+	beq @scrl
+	jmp bascalc
+@scrl:	lda #0
+	jsr sety
+@sc1:	lda txtptre
+	sta @st+1		; self-modify target
+	lda txtptre+1
+	sta @st+2
+	inc cursy
+	jsr bascalc
+	ldy #39
+@cp:	lda (txtptre),y
+@st:	sta $1111,y		; self-modified above
+	dey
+	bpl @cp
+	lda cursy
+	cmp #23
+	bne @sc1
+	jmp clreol
+.endproc
+
+;*****************************************************************************
 ; data
-cursx:	.byt 0
-cursy:	.byt 0
+cursx:		.byte 0
+cursy:		.byte 0
