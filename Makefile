@@ -5,8 +5,13 @@
 CA65 = ca65
 LD65 = ld65
 LDCFG = runix.cfg
+LDFLAGS = -C $(LDCFG)
+CA65FLAGS = -t none
 PYTHON = python3
 MKIMG = ./mkrunix.py
+
+# Suppress ld65 alignment warnings (expected for raw binary output)
+LINK = @$(LD65) $(LDFLAGS) -o $@ $< 2>&1 | grep -v "isn't aligned properly" || true
 
 # Build directory
 BUILD = build
@@ -19,15 +24,7 @@ SHELL_SRC = src/shell/shell.s
 BIN_SRC = $(wildcard src/bin/*.s)
 DEMO_SRC = $(wildcard src/demos/*.s)
 
-# Object file outputs
-BOOT_OBJ = $(BUILD)/boot.o
-KERNEL_OBJ = $(BUILD)/kernel.o
-RUNE_OBJS = $(patsubst src/runes/%.s,$(BUILD)/runes/%.o,$(RUNE_SRC))
-SHELL_OBJ = $(BUILD)/shell.o
-BIN_OBJS = $(patsubst src/bin/%.s,$(BUILD)/bin/%.o,$(BIN_SRC))
-DEMO_OBJS = $(patsubst src/demos/%.s,$(BUILD)/demos/%.o,$(DEMO_SRC))
-
-# Binary outputs
+# Binary outputs (final targets)
 BOOT_BIN = $(BUILD)/boot.bin
 KERNEL_BIN = $(BUILD)/kernel.bin
 RUNE_BINS = $(patsubst src/runes/%.s,$(BUILD)/runes/%.bin,$(RUNE_SRC))
@@ -38,9 +35,6 @@ DEMO_BINS = $(patsubst src/demos/%.s,$(BUILD)/demos/%.bin,$(DEMO_SRC))
 # Final disk image
 IMAGE = $(BUILD)/runix.2mg
 
-# Target CPU
-CPU = 6502
-
 .PHONY: all clean dirs
 
 all: $(IMAGE)
@@ -49,53 +43,28 @@ all: $(IMAGE)
 dirs:
 	@mkdir -p $(BUILD)/runes $(BUILD)/bin $(BUILD)/demos
 
-# Assemble boot block to object file
-$(BOOT_OBJ): $(BOOT_SRC) | dirs
-	$(CA65) -t none -o $@ $<
+# Assembly rules: .s -> .o
+$(BUILD)/boot.o: $(BOOT_SRC) | dirs
+	$(CA65) $(CA65FLAGS) -o $@ $<
 
-# Link boot block to binary
-$(BOOT_BIN): $(BOOT_OBJ) $(LDCFG)
-	@$(LD65) -C $(LDCFG) -o $@ $(BOOT_OBJ) 2>&1 || true
+$(BUILD)/kernel.o: $(KERNEL_SRC) | dirs
+	$(CA65) $(CA65FLAGS) -o $@ $<
 
-# Assemble kernel to object file
-$(KERNEL_OBJ): $(KERNEL_SRC) | dirs
-	$(CA65) -t none -o $@ $<
+$(BUILD)/shell.o: $(SHELL_SRC) | dirs
+	$(CA65) $(CA65FLAGS) -o $@ $<
 
-# Link kernel to binary
-$(KERNEL_BIN): $(KERNEL_OBJ) $(LDCFG)
-	@$(LD65) -C $(LDCFG) -o $@ $(KERNEL_OBJ) 2>&1 || true
-
-# Assemble runes to object files
 $(BUILD)/runes/%.o: src/runes/%.s | dirs
-	$(CA65) -t none -o $@ $<
+	$(CA65) $(CA65FLAGS) -o $@ $<
 
-# Link runes to binaries
-$(BUILD)/runes/%.bin: $(BUILD)/runes/%.o $(LDCFG)
-	@$(LD65) -C $(LDCFG) -o $@ $< 2>&1 || true
-
-# Assemble shell to object file
-$(SHELL_OBJ): $(SHELL_SRC) | dirs
-	$(CA65) -t none -o $@ $<
-
-# Link shell to binary
-$(SHELL_BIN): $(SHELL_OBJ) $(LDCFG)
-	@$(LD65) -C $(LDCFG) -o $@ $(SHELL_OBJ) 2>&1 || true
-
-# Assemble bin utilities to object files
 $(BUILD)/bin/%.o: src/bin/%.s | dirs
-	$(CA65) -t none -o $@ $<
+	$(CA65) $(CA65FLAGS) -o $@ $<
 
-# Link bin utilities to binaries
-$(BUILD)/bin/%.bin: $(BUILD)/bin/%.o $(LDCFG)
-	@$(LD65) -C $(LDCFG) -o $@ $< 2>&1 || true
-
-# Assemble demos to object files
 $(BUILD)/demos/%.o: src/demos/%.s | dirs
-	$(CA65) -t none -o $@ $<
+	$(CA65) $(CA65FLAGS) -o $@ $<
 
-# Link demos to binaries
-$(BUILD)/demos/%.bin: $(BUILD)/demos/%.o $(LDCFG)
-	@$(LD65) -C $(LDCFG) -o $@ $< 2>&1 || true
+# Linking rule: .o -> .bin (works for all paths)
+%.bin: %.o $(LDCFG)
+	$(LINK)
 
 # Build the disk image
 $(IMAGE): $(BOOT_BIN) $(KERNEL_BIN) $(RUNE_BINS) $(SHELL_BIN) $(BIN_BINS) $(DEMO_BINS)
