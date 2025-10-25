@@ -9,13 +9,13 @@ txtptro	= $F4
 ;*****************************************************************************
 .proc startup
 	jsr clrscr
-@lup:	lda $E000
+	ldy #0
+@lup:	lda welcome,y
+	beq @done
 	jsr cout
-	inc @lup+1
+	iny
 	bne @lup
-	inc @lup+2
-	bne @lup
-	jmp *	; hang for now
+@done:	jmp *	; hang for now
 .endproc
 
 ;*****************************************************************************
@@ -91,30 +91,43 @@ sety:	sta cursy
 ; Write one character to the text screen. Advances cursx (and cursy if end of
 ; line)
 ; In:	A - char to write (hi bit ignored)
-; Out:	For speed, does *not* preserve registers
+; Out:	Preserves A/X/Y
+	stx xsav
+	sty ysav
+	pha
 	ldy cursx
 	cmp #$D
-	beq crout
+	beq crout2
 	ora #$80
 	sta (txtptre),y
 	iny
 	cpy #40
+	beq crout2
 	sty cursx
-	beq crout
-	rts
 .endproc
+	; fall into...
+restregs:
+	ldx xsav
+	ldy ysav
+	pla
+	rts
 
 ;*****************************************************************************
-.proc crout
 ; Advance to start of next line - scrolls if end of screen reached.
-; Trashes all regs
+; Preserves A/X/Y
+crout:	stx xsav
+	sty ysav
+	pha
+	; fall into...
+.proc crout2
 	lda #0
 	sta cursx
 	inc cursy
 	lda cursy
 	cmp #24
 	beq @scrl
-	jmp bascalc
+	jsr bascalc
+	jmp restregs
 @scrl:	lda #0
 	jsr sety
 @sc1:	lda txtptre
@@ -131,10 +144,15 @@ sety:	sta cursy
 	lda cursy
 	cmp #23
 	bne @sc1
-	jmp clreol
+	jsr clreol
+	jmp restregs
 .endproc
 
 ;*****************************************************************************
 ; data
 cursx:		.byte 0
 cursy:		.byte 0
+xsav:		.byte 0
+ysav:		.byte 0
+
+welcome: .byte "Welcome to Runix 1.0",$D,0
