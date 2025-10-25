@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 BLOCK_SIZE = 512
-IMAGE_BLOCKS = 65536  # 32 MB = 65536 * 512 bytes
+IMAGE_BLOCKS = 65535  # 32 MB = 65535 * 512 bytes
 BLOCKS_PER_DIR = 4
 ROOT_DIR_BLOCK = 1
 
