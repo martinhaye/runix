@@ -31,11 +31,11 @@ def write_block(image, block_num, data):
 def create_dir_entry(name, start_block, length_pages):
     """
     Create a directory entry.
-    Format: 1-byte name length, name (hi-bit ASCII), 2-byte start block, 1-byte length in pages
+    Format: 1-byte name length, name bytes (ASCII), 2-byte start block, 1-byte length in pages
     """
     entry = bytearray()
-    # Convert name to hi-bit ASCII
-    name_bytes = bytearray([ord(c) | 0x80 for c in name])
+    # Convert name to ASCII
+    name_bytes = bytearray([ord(c) for c in name])
     entry.append(len(name_bytes))
     entry.extend(name_bytes)
     entry.extend(struct.pack('<H', start_block))  # start block (little-endian)
@@ -82,7 +82,7 @@ def build_filesystem(build_dir, output_path):
         kernel_data = read_binary(kernel_path)
         kernel_block = next_free_block
         next_free_block = write_file_to_image(image, kernel_block, kernel_data)
-        root_entries.append(create_dir_entry('runix.kernel', kernel_block, pages_needed(kernel_data)))
+        root_entries.append(create_dir_entry('runix', kernel_block, pages_needed(kernel_data)))
 
     # 3. Reserve space for runes subdirectory
     runes_dir_block = next_free_block

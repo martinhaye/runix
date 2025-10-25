@@ -5,9 +5,9 @@
 
 tmp	= $6
 ptmp	= $8
+jblkdrv = $A
+blkdrv  = $B
 
-jblkdrv = $3F
-blkdrv  = $40
 cmd     = $42
 unit    = $43
 bufptr  = $44
@@ -49,7 +49,7 @@ krnorg	= $E00
 	bcc gotdir
 err:	lda #'E'	; display "E" in lower-left corner of screen
 	sta $7D0
-	jmp *		; hang the system
+	bne *		; hang the system
 gotdir: lda #$60	; figure out where we are
 	sta tmp
 	jsr tmp
@@ -67,15 +67,15 @@ fnlup:	lda dirbuf+2,y
 	iny
 	dex
 	bpl fnlup	; includes len byte
-match:	lda dirbuf+2,x	; blk num lo
+match:	lda dirbuf+2,y	; blk num lo
 	sta blknum
-	inx
-	lda dirbuf+2,x	; blk num hi
+	iny
+	lda dirbuf+2,y	; blk num hi
 	sta blknum+1
-	inx
+	iny
 	lda #>krnorg
 	sta bufptr+1
-	lda dirbuf+2,x	; # pages
+	lda dirbuf+2,y	; # pages
 	clc
 	adc #1
 	lsr		; div 2, rounded up, to get # blks
@@ -95,8 +95,8 @@ rdkrn:	pha		; save blk count
 	; and jump to it to continue the boot process
 	jmp krnorg	
 
-kernfn:	.byte 13	; len
-	.byte "runeix.kernel"
+kernfn:	.byte 5		; len
+	.byte "runix"
 
 	.align 256
 dirbuf	= *

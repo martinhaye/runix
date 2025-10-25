@@ -59,7 +59,7 @@
 **Directory Entry Format (variable length):**
 
 1. 1 byte: name length (0 = end of entries)
-2. N bytes: filename in hi-bit ASCII
+2. N bytes: filename in lo-bit ASCII
 3. 2 bytes: start block (little-endian)
 4. 1 byte: length in pages (256-byte pages), or `$F8` for directory
 
@@ -68,7 +68,7 @@
 - Unix-style lowercase filenames
 - Runes stored in `/runes/` subdirectory
 - Runes named as `XX-description` (e.g., `00-system`, `01-example`)
-- First file in root must be `runix.kernel` for bootability
+- First file in root must be `runix` for bootability
 
 ### Boot Process
 
@@ -156,7 +156,7 @@ Creates a 32MB (65536 blocks) disk image with:
 - Block 0: Boot block with Runix magic bytes
 - Blocks 1-4: Root directory with all files cataloged
 - Automatic subdirectory creation (e.g., `/runes/`)
-- Proper directory entry formatting (hi-bit ASCII names)
+- Proper directory entry formatting (ASCII names)
 - File layout: kernel → runes dir → runes → shell → bins → demos
 
 ## Current State

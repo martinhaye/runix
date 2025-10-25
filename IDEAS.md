@@ -52,7 +52,7 @@ Let's keep it super simple.
   executes harmlessly, and is even Apple II compatible.
 - Block $0000 continues with the loader
 - Blocks $0001.0004 hold the root dir, about 100 entries if 20 bytes each. First file
-  must be "runix.kernel" for it to be bootable/usable.
+  must be "runix" for it to be bootable/usable.
 - Blocks $0005.FFFF hold data files and subdirs. First subdir is usually "runes".
 - Directories are always 4 blks ($800) long, about 100 entries
 - Directory block format:
@@ -70,7 +70,7 @@ Let's keep it super simple.
 1. Floppy booted by Apple /// - loads first blk to $A000 and jumps to it
 2. Scan slots for mass storage card, highest slot to lowest. Record slot found.
 3. Load block 0 at $800 and jump to it.
-4. Blk 0 code: load block 1, and verify first file is "runix.kernel"
+4. Blk 0 code: load block 1, and verify first file is "runix"
 5. Read kernel blocks starting at $E00
 6. Jump to kernel
 
