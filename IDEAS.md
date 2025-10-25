@@ -48,7 +48,7 @@ Load
 Let's keep it super simple.
 
 - Block 0 starts with magic:
-  `01 D2 F5 EE E9 F8` - which spells "\1Runix" and also disassembles cleanly,
+  `01 52 75 6E 69 78` - which spells "\1Runix" and also disassembles cleanly,
   executes harmlessly, and is even Apple II compatible.
 - Block $0000 continues with the loader
 - Blocks $0001.0004 hold the root dir, about 100 entries if 20 bytes each. First file

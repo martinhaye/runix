@@ -73,19 +73,8 @@ def build_filesystem(build_dir, output_path):
 
     # 1. Read and write boot block (block 0)
     boot_path = Path(build_dir) / 'boot.bin'
-    if boot_path.exists():
-        boot_data = read_binary(boot_path)
-        # Boot block starts with Runix magic: 01 D2 F5 EE E9 F8
-        # which spells "\1Runix"
-        magic = bytes([0x01, 0xD2, 0xF5, 0xEE, 0xE9, 0xF8])
-        if not boot_data.startswith(magic):
-            # Prepend magic if not present
-            boot_data = magic + boot_data
-        write_block(image, 0, boot_data[:BLOCK_SIZE])
-    else:
-        # Write just the magic
-        magic = bytes([0x01, 0xD2, 0xF5, 0xEE, 0xE9, 0xF8])
-        write_block(image, 0, magic)
+    boot_data = read_binary(boot_path)
+    write_block(image, 0, boot_data[:BLOCK_SIZE])
 
     # 2. Add kernel to root directory
     kernel_path = Path(build_dir) / 'kernel.bin'
