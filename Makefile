@@ -10,7 +10,7 @@ CA65FLAGS = -t none
 PYTHON = python3
 MKIMG = ./mkrunix.py
 MDNS_CHECK = ./mdns_chk.py
-RSYNC = rsync -a --inplace
+RSYNC = rsync -a --inplace --progress
 
 # Suppress ld65 alignment warnings (expected for raw binary output)
 LINK = @$(LD65) $(LDFLAGS) -o $@ $< 2>&1 | grep -v "isn't aligned properly" || true
@@ -43,13 +43,7 @@ IMAGE = $(BUILD)/runix.2mg
 
 .PHONY: all clean dirs deploy
 
-all: $(IMAGE)
-	@echo "Checking for presence of disk server."; \
-	if $(PYTHON) $(MDNS_CHECK) $(DISKSERVER) >/dev/null 2>&1; then \
-		echo "Disk server found, deploying..."; \
-		$(RSYNC) $(IMAGE) $(DEPLOY_TARGET); \
-		echo "Deployed to $(DEPLOY_TARGET)"; \
-	fi
+all: deploy
 
 # Create build directories
 dirs:
