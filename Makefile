@@ -10,7 +10,7 @@ CA65FLAGS = -t none
 PYTHON = python3
 MKIMG = ./mkrunix.py
 MDNS_CHECK = ./mdns_chk.py
-RSYNC = rsync -a --inplace --progress
+RSYNC = rsync -a --inplace --progress --compress
 
 # Suppress ld65 alignment warnings (expected for raw binary output)
 LINK = @$(LD65) $(LDFLAGS) -o $@ $< 2>&1 | grep -v "isn't aligned properly" || true
@@ -20,7 +20,7 @@ BUILD = build
 
 # Deployment settings
 DISKSERVER = diskserver.local
-DEPLOY_TARGET = $(DISKSERVER):/srv/apple2_share/editor.2mg
+DEPLOY_TARGET = $(DISKSERVER):/srv/apple2_share/Runix.2mg
 
 # Source files
 BOOT_SRC = src/boot/boot.s

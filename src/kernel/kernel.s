@@ -47,24 +47,19 @@ a3mon	= $F901
 	txa
 	bpl @a2brk
 	lda #$4C	; Apple III jumps to $FFCD on BRK/IRQ
-	stx $FFCD
+	sta $FFCD
 	lda #<brkhnd
 	sta $FFCE
 	lda #>brkhnd
-	sty $FFCF
+	sta $FFCF
 	bne @brkdn	; always taken
 @a2brk:	lda #<a2brk
 	sta $3F0	; Apple II does "JMP ($3F0)" on BRK/IRQ
 	lda #>a2brk
 	sta $3F1
 @brkdn: jsr clrscr
-	ldy #0
-@lup:	lda welcome,y
-	beq @done
-	jsr cout
-	iny
-	bne @lup
-@done:	lda #$A1
+	print "Welcome to Runix 0.1\n"
+	lda #$A1
 	ldx #$B2
 	ldy #$C3
 	clc
@@ -74,7 +69,7 @@ a3mon	= $F901
 	jsr showallchars
 	jsr trycharmap
 	inc $7D0
-	jmp @done
+	jmp *		; loop forever
 .endproc
 
 ;*****************************************************************************
@@ -601,16 +596,20 @@ a2brk:	; put things back the way native brk would be
 	ldx yreg
 	lda #'Y'
 	jsr @preg
-	tya		; get back the preg val
+	tya		; get back p-reg val, saved all the way up there
 	tax
 	lda #'P'
 	jsr @preg
-	tsx
+	tsx		; happily we've popped everything, so this is the real caller S reg
 	lda #'S'
 	jsr @preg
 	jsr crout
-	bit a3flg	; jump to platform-specific system monitor for now
+	; jump to platform-specific system monitor for now
+	bit a3flg
 	bpl @a2
+	lda #23
+	sta $5D
+	jsr $FBC7	; a3 bascalc
 	jmp a3mon
 @a2:	jmp a2mon
 
