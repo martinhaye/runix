@@ -4,6 +4,10 @@
 	.org $0E00
 
 tmp	= $6
+ptmp	= $8
+tmp2	= $A
+ptmp2	= $C
+pstr	= $E
 
 txtptre	= $F2
 txtptro	= $F4
@@ -13,17 +17,62 @@ CWRTOFF	= $C0DA
 CB2CTRL	= $FFEC
 CB2INT	= $FFED
 
+a2mon	= $FF65
+a3mon	= $F901
+
+;*****************************************************************************
+; String macros
+.feature string_escapes	; mostly so "\n" works in strings
+
+.macro	print	str
+	.byte 0, str, 0
+.endmacro
+
+.macro	ldstr	str
+	.if (strlen(str) >= 32) || (strlen(str) == 0)
+	.error "ldstr can only handle lengths 1..31"
+	.endif
+	.byte 0, .strlen(str), str
+.endmacro
+
 ;*****************************************************************************
 .proc startup
-	jsr clrscr
+	; identify the platform (Apple /// or not)
+	ldx #0
+	lda a3mon
+	cmp #$BA	; TSX on Apple /// rom
+	bne @gotpl
+	ldx #$80
+@gotpl:	stx a3flg
+	txa
+	bpl @a2brk
+	lda #$4C	; Apple III jumps to $FFCD on BRK/IRQ
+	stx $FFCD
+	lda #<brkhnd
+	sta $FFCE
+	lda #>brkhnd
+	sty $FFCF
+	bne @brkdn	; always taken
+@a2brk:	lda #<a2brk
+	sta $3F0	; Apple II does "JMP ($3F0)" on BRK/IRQ
+	lda #>a2brk
+	sta $3F1
+@brkdn: jsr clrscr
 	ldy #0
 @lup:	lda welcome,y
 	beq @done
 	jsr cout
 	iny
 	bne @lup
+@done:	lda #$A1
+	ldx #$B2
+	ldy #$C3
+	clc
+	ldx #$E0
+	txs
+	brk 0
 	jsr showallchars
-@done:	jsr trycharmap
+	jsr trycharmap
 	inc $7D0
 	jmp @done
 .endproc
@@ -97,6 +146,8 @@ sety:	sta cursy
 .endproc
 
 ;*****************************************************************************
+prspc:	lda #' '
+	; fall into...
 .proc cout
 ; Write one character to the text screen. Advances cursx (and cursy if end of
 ; line)
@@ -106,9 +157,12 @@ sety:	sta cursy
 	sty ysav
 	pha
 	ldy cursx
-	cmp #$D
+	and #$7F	; ignore hi-bits if present
+	cmp #$D		; traditional Apple II carriage-return ('\r')
 	beq crout2
-	ora #$80
+	cmp #$A		; '\n' c-style newline
+	beq crout2
+	ora #$80	; set hi-bit for normal non-inverse text
 	sta (txtptre),y
 	iny
 	cpy #40
@@ -156,6 +210,25 @@ crout:	stx xsav
 	bne @sc1
 	jsr clreol
 	jmp restregs
+.endproc
+
+;*****************************************************************************
+.proc prbyte
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr @prdig
+	pla
+	and #$F
+@prdig:	cmp #$A
+	bcs @letr
+	adc #'0'
+	jmp cout
+@letr:	clc
+	adc #'A'-$A
+	jmp cout
 .endproc
 
 ;*****************************************************************************
@@ -358,10 +431,222 @@ crout:	stx xsav
 .endproc
 
 ;*****************************************************************************
-; data
-cursx:		.byte 0
-cursy:		.byte 0
-xsav:		.byte 0
-ysav:		.byte 0
+.proc reloc
+; Relocator
+; Input:
+;	A=src page
+;	X=dst/current page
+;	Y=num pages
+@srcpage = tmp
+@dstpage = tmp+1
+@npages = tmp2
+@pscan = ptmp
+	sta @srcpage
+	stx @dstpage
+	stx @pscan+1
+	sty @npages
+	lda #0
+	sta @pscan
+	tay		; Y is normally zero
+@inst:	lda (@pscan),y	; read next instruction
+	and #$1F	; extract just bits bbbcc
+	beq @spec	; special cases if bbbcc == 0
+	tax
+	lda inslen_t,x	
+@gotln:	cmp #3
+	beq @len3
+	; len < 3, so carry is now clear
+@adv:	;clc		; carry is already clear when we arrive here
+	adc @pscan
+	sta @pscan
+	bcc @inst
+	inc @pscan+1
+	dec @npages
+	bne @inst
+@stop:	rts
 
+@spec:	lda (@pscan),y
+	beq @sbrk	; special handling for BRK strings
+	and #$E0	; extract bits aaa
+	cmp #$20	; aaa==001 -> JSR abs (3)
+	beq @len3
+	cmp #$A0	; aaa>=101 -> {LDY,CPY,CPX} #imm (2)
+	bcs @len2
+@len1:	lda #1
+	; carry is already clear
+	bcc @adv	; always taken
+@len2:	lda #2
+	clc
+	bcc @adv	; always taken
+
+@len3:	;sec		; fyi we got here via beq, so carry is already set
+	ldy #2
+	lda (@pscan),y	; high byte of operand
+	sbc @srcpage	; find page offset; carry already set
+	bcc @skip	; before range? skip
+	cmp @npages	; after range? skip
+	bcs @skip
+	; carry is now clear
+	adc @dstpage	; adjust for new location
+	sta (@pscan),y	; and store it
+@skip:	lda #3		; back to 3-byte len
+	ldy #0		; normal state again
+	clc
+	bcc @adv	; always taken
+
+@sbrk:	iny
+	lda (@pscan),y	; check 1st byte of str
+	beq @bbrk	; if zero, it's a normal brk (or maybe start-of-data)
+	cmp #$20
+	bcc @lpfx	; if < $20, it's length-prefixed
+@chkz:	iny
+	lda (@pscan),y
+	bne @chkz	; scan for zero-terminator
+	iny		; and one past for next ins
+	tya		; now we have the len
+	ldy #0
+	clc
+	bcc @adv	; always taken
+
+@lpfx:	sec
+	adc #2		; brk + len + bytes; always clears carry since len < $20
+	ldy #0		; normal mode
+	bcc @adv	; always taken
+
+@bbrk:	iny
+	lda (@pscan),y	; one more byte
+	beq @stop	; 3 zeros in a row --> stop relocation, data section begun
+	ldy #0
+	beq @len2	; otherwise, a real 2-byte brk (always taken)
+.endproc
+
+;*****************************************************************************
+a2brk:	; put things back the way native brk would be
+	lda $3B		; pc h
+	pha
+	lda $3A		; pc l
+	pha
+	lda $48		; preg
+	pha
+	lda $45		; areg
+	ldx $46
+	ldy $47
+.proc brkhnd
+	sta areg
+	stx xreg
+	sty yreg
+	pla
+	pha		; leave preg on stack
+	and #$10
+	beq @irq	; for now, do nothing on real IRQ
+	tsx
+	lda $102,x
+	sec
+	sbc #1
+	sta pstr
+	lda $103,x
+	sbc #0
+	sta pstr+1
+	ldy #0
+	lda (pstr),y
+	beq @rbrk	; BRK 00 means a real brk
+	cmp #$20
+	bcc @adv	; < $20 means len-prefixed string; skip over it
+	; otherwise, print zero-terminated string
+@scanz:	jsr cout
+	iny
+	lda (pstr),y	; find terminator
+	bne @scanz
+	tya
+@adv:	sec		; advance over the terminator (or over the len pfx)
+	adc pstr
+	sta $102,x
+	bcc @ret
+	inc $103,x
+@ret:	lda areg
+	ldx xreg
+	ldy yreg
+@irq:	rti
+
+; really brk (brk 00) - print location and registers
+@rbrk:	lda #22
+	jsr sety
+	lda #0
+	sta cursx
+	pla		; p reg
+	tay		; save it aside
+	bit a3flg
+	bmi @isa3
+	lda #21
+	sta $25
+	jsr $FD8E	; a2 crout
+@isa3:	pla		; PC lo
+	sbc #1		; brk advances as if a 2-byte instr
+	tax
+	pla		; PC hi
+	sbc #0
+	jsr prbyte
+	txa
+	jsr prbyte
+	lda #':'
+	jsr cout
+	jsr prspc
+	; print all registers
+	ldx areg
+	lda #'A'
+	jsr @preg
+	ldx xreg
+	lda #'X'
+	jsr @preg
+	ldx yreg
+	lda #'Y'
+	jsr @preg
+	tya		; get back the preg val
+	tax
+	lda #'P'
+	jsr @preg
+	tsx
+	lda #'S'
+	jsr @preg
+	jsr crout
+	bit a3flg	; jump to platform-specific system monitor for now
+	bpl @a2
+	jmp a3mon
+@a2:	jmp a2mon
+
+@preg:	jsr cout
+	lda #'='
+	jsr cout
+	txa
+	jsr prbyte
+	jmp prspc
+.endproc
+
+;*****************************************************************************
+; data
+a3flg:	.byte 0
+cursx:	.byte 0
+cursy:	.byte 0
+; saves used by cout:
+asav:	.byte 0
+xsav:	.byte 0
+ysav:	.byte 0
+; saves used by brkhnd:
+areg:	.byte 0
+xreg:	.byte 0
+yreg:	.byte 0
+
+; 32-byte unified table, indexed by bbbcc = (opcode & $1F)
+; For each bbb (0..7), entries are [cc=00, cc=01, cc=10, cc=11]
+inslen_t:
+        .byte 1,2,2,1	; bbb=000: impl | (zp,X) |  #   | ill
+        .byte 2,2,2,1	; bbb=001:  zp  |   zp   |  zp  | ill
+        .byte 1,2,1,1	; bbb=002: impl |   #    |  A   | ill
+        .byte 3,3,3,1	; bbb=003:  abs |  abs   | abs  | ill
+        .byte 2,2,2,1	; bbb=004:  bra | (zp),Y | zp,X | ill
+        .byte 2,2,2,1	; bbb=005: zp,X |  zp,X  | zp,Y | ill
+        .byte 1,3,1,1	; bbb=006: impl | abs,Y  | imp  | ill
+        .byte 3,3,3,1	; bbb=007: abs,X| abs,X  | abs,X| ill
+
+; Text of welcome message
 welcome: .byte "RUNIX 1.0",$D,0

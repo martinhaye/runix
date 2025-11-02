@@ -23,23 +23,23 @@ Print
   lda #1
   ldx #2
   PRINT "Foo %x"   ; prints "Foo $201"
-  ; encoding: `00 C6 EF EF A0 A5 F8 00`
+  ; encoding: `00 46 6F 6F 20 35 78 00`
 ```
 
-The string is allowed to contain a single printf-style code from this list:
+The string is allowed to contain _one_ printf-style code from this list:
 
 - `%x` to print '$' and A/X in hex
 - `%d` to print A/X in decimal
 - `%c` to print A as a char
 - `%s` to print string pointed to by A/X
-  - Pascal-style length-prefixed if first byte < $80
-  - Zero-terminted if first byte >= $80
+  - Pascal-style length-prefixed if first byte < $20
+  - Zero-terminted if first byte >= $20
 
 Load
 
 ```
   LDSTR "Foobar"  ; points A/X to 6-byte len prefixed string "Foobar"
-  ; encoding: `00 06 C6 EF EF E2 E1 F2`
+  ; encoding: `00 06 46 6F 6F 62 61 72`
 ```
 
 ## Filesystem
