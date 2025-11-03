@@ -58,18 +58,16 @@ a3mon	= $F901
 	lda #>a2brk
 	sta $3F1
 @brkdn: jsr clrscr
+	jsr test_reloc
+	jmp *
 	print "Welcome to Runix 0.1\n"
-	lda #$A1
-	ldx #$B2
-	ldy #$C3
-	clc
-	ldx #$E0
-	txs
-	brk 0
 	jsr showallchars
-	jsr trycharmap
-	inc $7D0
-	jmp *		; loop forever
+@try:	jsr trycharmap
+	lda $7D0
+	clc
+	adc #8
+	sta $7D0
+	jmp @try	; loop forever
 .endproc
 
 ;*****************************************************************************
@@ -384,24 +382,23 @@ crout:	stx xsav
 	cpx #4
 	bne @stoA
 
-	bit CWRTON
+	lda CWRTON
 	lda #$60
-	jsr vretrace
+	jsr @vretr
 	lda #$20
-	jsr vretrace
-	bit CWRTOFF
+	jsr @vretr
+	lda CWRTOFF
 	rts
-.endproc
 
-.proc vretrace
-	sta tmp
+@vretr:	sta @or+1	; mod self below
 	lda CB2CTRL
-	and #$3F
-	ora tmp
+	and #$1F
+@or:	ora #$22	; self-mod above
 	sta CB2CTRL
 	lda #8
 	sta CB2INT
-@lup:	bit CB2INT
+@lup:	lda CB2INT
+	and #8
 	beq @lup
 	rts
 .endproc
@@ -422,6 +419,35 @@ crout:	stx xsav
 	lda cursy
 	cmp #16
 	bne @row
+	rts
+.endproc
+
+;*****************************************************************************
+.proc test_reloc
+	lda #0
+@loop:	sta $2000
+	pha
+	lda #0
+	sta $2001
+	lda #1
+	sta $2002
+	lda #$20
+	tax
+	tay
+	jsr reloc
+	clc
+	adc #'0'
+	jsr cout
+	pla
+	pha
+	and #$F
+	cmp #$F
+	bne :+
+	jsr crout
+:	pla
+	clc
+	adc #1
+	bne @loop
 	rts
 .endproc
 
@@ -452,6 +478,7 @@ crout:	stx xsav
 	beq @len3
 	; len < 3, so carry is now clear
 @adv:	;clc		; carry is already clear when we arrive here
+	rts	; FIXME: JUST FOR TESTING
 	adc @pscan
 	sta @pscan
 	bcc @inst
