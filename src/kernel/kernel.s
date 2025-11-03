@@ -58,8 +58,6 @@ a3mon	= $F901
 	lda #>a2brk
 	sta $3F1
 @brkdn: jsr clrscr
-	jsr test_reloc
-	jmp *
 	print "Welcome to Runix 0.1\n"
 	jsr showallchars
 @try:	jsr trycharmap
@@ -423,35 +421,6 @@ crout:	stx xsav
 .endproc
 
 ;*****************************************************************************
-.proc test_reloc
-	lda #0
-@loop:	sta $2000
-	pha
-	lda #0
-	sta $2001
-	lda #1
-	sta $2002
-	lda #$20
-	tax
-	tay
-	jsr reloc
-	clc
-	adc #'0'
-	jsr cout
-	pla
-	pha
-	and #$F
-	cmp #$F
-	bne :+
-	jsr crout
-:	pla
-	clc
-	adc #1
-	bne @loop
-	rts
-.endproc
-
-;*****************************************************************************
 .proc reloc
 ; Relocator
 ; Input:
@@ -470,15 +439,13 @@ crout:	stx xsav
 	sta @pscan
 	tay		; Y is normally zero
 @inst:	lda (@pscan),y	; read next instruction
-	and #$1F	; extract just bits bbbcc
-	beq @spec	; special cases if bbbcc == 0
+	beq @sbrk	; special case for brk
 	tax
-	lda inslen_t,x	
-@gotln:	cmp #3
+	lda inslen_t,x
+	cmp #3
 	beq @len3
 	; len < 3, so carry is now clear
 @adv:	;clc		; carry is already clear when we arrive here
-	rts	; FIXME: JUST FOR TESTING
 	adc @pscan
 	sta @pscan
 	bcc @inst
@@ -486,20 +453,6 @@ crout:	stx xsav
 	dec @npages
 	bne @inst
 @stop:	rts
-
-@spec:	lda (@pscan),y
-	beq @sbrk	; special handling for BRK strings
-	and #$E0	; extract bits aaa
-	cmp #$20	; aaa==001 -> JSR abs (3)
-	beq @len3
-	cmp #$A0	; aaa>=101 -> {LDY,CPY,CPX} #imm (2)
-	bcs @len2
-@len1:	lda #1
-	; carry is already clear
-	bcc @adv	; always taken
-@len2:	lda #2
-	clc
-	bcc @adv	; always taken
 
 @len3:	;sec		; fyi we got here via beq, so carry is already set
 	ldy #2
@@ -539,7 +492,9 @@ crout:	stx xsav
 	lda (@pscan),y	; one more byte
 	beq @stop	; 3 zeros in a row --> stop relocation, data section begun
 	ldy #0
-	beq @len2	; otherwise, a real 2-byte brk (always taken)
+	lda #2
+	clc
+	bcc @adv	; otherwise, a real 2-byte brk (always taken)
 .endproc
 
 ;*****************************************************************************
@@ -662,17 +617,24 @@ areg:	.byte 0
 xreg:	.byte 0
 yreg:	.byte 0
 
-; 32-byte unified table, indexed by bbbcc = (opcode & $1F)
-; For each bbb (0..7), entries are [cc=00, cc=01, cc=10, cc=11]
-inslen_t:
-        .byte 1,2,2,1	; bbb=000: impl | (zp,X) |  #   | ill
-        .byte 2,2,2,1	; bbb=001:  zp  |   zp   |  zp  | ill
-        .byte 1,2,1,1	; bbb=002: impl |   #    |  A   | ill
-        .byte 3,3,3,1	; bbb=003:  abs |  abs   | abs  | ill
-        .byte 2,2,2,1	; bbb=004:  bra | (zp),Y | zp,X | ill
-        .byte 2,2,2,1	; bbb=005: zp,X |  zp,X  | zp,Y | ill
-        .byte 1,3,1,1	; bbb=006: impl | abs,Y  | imp  | ill
-        .byte 3,3,3,1	; bbb=007: abs,X| abs,X  | abs,X| ill
-
 ; Text of welcome message
 welcome: .byte "RUNIX 1.0",$D,0
+
+	.align 256
+inslen_t:
+	.byte 1,2,1,1,1,2,2,1,1,2,1,1,1,3,3,1
+	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
+	.byte 3,2,1,1,2,2,2,1,1,2,1,1,3,3,3,1
+	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
+	.byte 1,2,1,1,1,2,2,1,1,2,1,1,3,3,3,1
+	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
+	.byte 1,2,1,1,1,2,2,1,1,2,1,1,3,3,3,1
+	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
+	.byte 1,2,1,1,2,2,2,1,1,1,1,1,3,3,3,1
+	.byte 2,2,1,1,2,2,2,1,1,3,1,1,1,3,1,1
+	.byte 2,2,2,1,2,2,2,1,1,2,1,1,3,3,3,1
+	.byte 2,2,1,1,2,2,2,1,1,3,1,1,3,3,3,1
+	.byte 2,2,1,1,2,2,2,1,1,2,1,1,3,3,3,1
+	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
+	.byte 2,2,1,1,2,2,2,1,1,2,1,1,3,3,3,1
+	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
