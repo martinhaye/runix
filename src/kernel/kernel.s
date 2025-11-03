@@ -59,6 +59,8 @@ a3mon	= $F901
 	sta $3F1
 @brkdn: jsr clrscr
 	print "Welcome to Runix 0.1\n"
+	jmp gosysmon
+	;
 	jsr showallchars
 @try:	jsr trycharmap
 	lda $7D0
@@ -450,8 +452,11 @@ crout:	stx xsav
 	sta @pscan
 	bcc @inst
 	inc @pscan+1
-	dec @npages
-	bne @inst
+	lda @pscan+1
+	sec
+	sbc @dstpage
+	cmp @npages
+	bcc @inst
 @stop:	rts
 
 @len3:	;sec		; fyi we got here via beq, so carry is already set
@@ -552,12 +557,7 @@ a2brk:	; put things back the way native brk would be
 	sta cursx
 	pla		; p reg
 	tay		; save it aside
-	bit a3flg
-	bmi @isa3
-	lda #21
-	sta $25
-	jsr $FD8E	; a2 crout
-@isa3:	pla		; PC lo
+	pla		; PC lo
 	sbc #1		; brk advances as if a 2-byte instr
 	tax
 	pla		; PC hi
@@ -587,13 +587,7 @@ a2brk:	; put things back the way native brk would be
 	jsr @preg
 	jsr crout
 	; jump to platform-specific system monitor for now
-	bit a3flg
-	bpl @a2
-	lda #23
-	sta $5D
-	jsr $FBC7	; a3 bascalc
-	jmp a3mon
-@a2:	jmp a2mon
+	jmp gosysmon
 
 @preg:	jsr cout
 	lda #'='
@@ -601,6 +595,20 @@ a2brk:	; put things back the way native brk would be
 	txa
 	jsr prbyte
 	jmp prspc
+.endproc
+
+;*****************************************************************************
+.proc gosysmon
+	bit a3flg
+	bpl @a2
+@a3:	lda #23
+	sta $5D
+	jsr $FBC7	; a3 bascalc
+	jmp a3mon
+@a2:	lda #21
+	sta $25
+	jsr $FD8E	; a2 crout
+	jmp a2mon
 .endproc
 
 ;*****************************************************************************
@@ -616,9 +624,6 @@ ysav:	.byte 0
 areg:	.byte 0
 xreg:	.byte 0
 yreg:	.byte 0
-
-; Text of welcome message
-welcome: .byte "RUNIX 1.0",$D,0
 
 	.align 256
 inslen_t:
