@@ -1,42 +1,38 @@
 ; Runix kernel
-; Loads at $0E00
 
+.include "base.i"
+
+; Always loads at $0E00
 	.org $0E00
 
-tmp	= $6
-ptmp	= $8
-tmp2	= $A
-ptmp2	= $C
-pstr	= $E
-
+; Zero-page - keep minimal for kernel!
 txtptre	= $F2
 txtptro	= $F4
 
+; Hardware addresses
 CWRTON	= $C0DB
 CWRTOFF	= $C0DA
 CB2CTRL	= $FFEC
 CB2INT	= $FFED
 
+; ROM locations
 a2mon	= $FF65
 a3mon	= $F901
 
-;*****************************************************************************
-; String macros
-.feature string_escapes	; mostly so "\n" works in strings
-
-.macro	print	str
-	.byte 0, str, 0
-.endmacro
-
-.macro	ldstr	str
-	.if (strlen(str) >= 32) || (strlen(str) == 0)
-	.error "ldstr can only handle lengths 1..31"
-	.endif
-	.byte 0, .strlen(str), str
-.endmacro
+; Constants
+NDIRBLKS = 4
 
 ;*****************************************************************************
 .proc startup
+	; grab vector to HDD block routine (it was set up by our boot loader)
+	lda $B
+	sta callhdd+1
+	lda $C
+	sta callhdd+2
+	; also grab the unit #
+	lda $43
+	sta hddunit
+
 	; identify the platform (Apple /// or not)
 	ldx #0
 	lda a3mon
@@ -44,6 +40,8 @@ a3mon	= $F901
 	bne @gotpl
 	ldx #$80
 @gotpl:	stx a3flg
+	
+	; set up the BRK handler
 	txa
 	bpl @a2brk
 	lda #$4C	; Apple III jumps to $FFCD on BRK/IRQ
@@ -52,26 +50,350 @@ a3mon	= $F901
 	sta $FFCE
 	lda #>brkhnd
 	sta $FFCF
-	bne @brkdn	; always taken
+	bne @welcm	; always taken
 @a2brk:	lda #<a2brk
 	sta $3F0	; Apple II does "JMP ($3F0)" on BRK/IRQ
 	lda #>a2brk
 	sta $3F1
-@brkdn: jsr clrscr
+
+@welcm: ; display the welcome message and set initial rune vecs
+	jsr _clrscr
 	print "Welcome to Runix 0.1\n"
+	jsr _resetrunes
+	; set cwd = root dir (block 1)
+	ldx #1
+	stx cwdblk
+	dex
+	stx cwdblk+1
+	; find the "runes" subdir
+	ldstr "runes"
+	jsr _dirscan
+	bcc_or_die "no runes dir"
+	sta runesdirblk
+	stx runesdirblk+1
+
+	; load the default font
+	jsr $C40	; rune 2, vector 0: this will shock-load rune 2
+
+	; we don't have a shell yet - start system monitor for inspection
 	jmp gosysmon
-	;
-	jsr showallchars
-@try:	jsr trycharmap
-	lda $7D0
-	clc
-	adc #8
-	sta $7D0
-	jmp @try	; loop forever
 .endproc
 
 ;*****************************************************************************
-sety:	sta cursy
+.proc _resetrunes
+	; set up the dummy rune API vectors
+	lda #0
+	sta ptmp
+	lda #$C
+	sta ptmp+1
+	ldy #0
+	sty tmp
+@crune:	lda rune0vecs,y	; rune0 is the kernel naturally
+	sta (ptmp),y
+	iny
+	cpy #$40	; cover rune1 as well (text services)
+	bne @crune
+	; remaining runes are all stubs
+@outer:	ldx #10
+@dum:	lda #$20	; it's a JSR so we can capture the vector addr
+	sta (ptmp),y
+	iny
+	lda #<shockload
+	sta (ptmp),y
+	iny
+	lda #>shockload
+	sta (ptmp),y
+	iny
+	dex
+	bne @dum
+	lda #$EA	; nop
+	sta (ptmp),y
+	iny
+	sta (ptmp),y
+	iny
+	bne @outer	; 10 vec * 3 bytes + 2 nops = 32; 32*8 runes = 256
+	inc ptmp+1
+	lda ptmp+1
+	cmp #$E
+	bne @outer
+	; reset the rune allocation page; start with kernelend .. $2000
+	lda #>kernelend
+	sta nextrunepg
+	lda #$20
+	sta limitrunepg
+	rts
+.endproc
+
+;*****************************************************************************
+; Shock-load a rune
+.proc shockload
+	sta asav
+	stx xsav
+	sty ysav
+	pla		; retadr lo
+	sec
+	sbc #2		; back to start of jump vec
+	sta @jgo+1	; modifies code below
+	and #$E0	; 00, 20, 40, etc.
+	sta @rvec+1	; ptr to start of rune vecs, for later
+	tay		; save temporarily
+	lda $102,x	; retadr hi
+	sbc #0
+	sta @jgo+2	; modifies code below
+	sta @rvec+2	; ptr hi for start of rune vecs, for later
+	sta tmp
+	tya		; get ret lo back
+	ldx #5		; div 32 (shift right 5)
+:	lsr tmp
+	ror
+	dex
+	bne :-
+	and #$F		; rune number now in A
+	ora #'0'	; form filename prefix
+	sta runefn+2
+	; switch to rune subdir
+	ldx #1
+:	lda cwdblk,x
+	pha
+	lda runesdirblk,x
+	sta cwdblk,x
+	dex
+	bne :-
+	; search for the rune with wildcard
+	lda #<runefn
+	ldx #>runefn
+	jsr wildscan
+	bcc_or_die "missing rune"
+	pha		; save blk num on stk
+	txa
+	pha
+	sty @ldnpg+1	; modify code - # pages
+	; allocate memory for the rune code
+	jsr @runealloc	; allocate Y pages, result pg in X
+	stx @ldtpg+1	; modify code - target page
+	stx @cpvec+2	; mod code below for vector copy later
+	; read the rune
+	pla		; we stashed blk num on stack earlier
+	tax
+	pla
+	; y already contains target page
+	jsr _readblks	; read in the rune code
+	; process the code relocation
+	lda #$20	; rune code is always org $2000
+@ldtpg:	ldx #$11	; target page, self-mod above
+@ldnpg:	ldy #$22	; number of pages, self-mod above
+	jsr reloc
+	; copy the rune's vectors to their place in the table
+	ldx #$1F
+@cpvec:	lda $1100,x	; self-modified above
+@rvec:	sta $C00,x	; self-modified earlier
+	dey
+	bpl @cpvec
+	; restore orig cwd
+	pla
+	sta cwdblk
+	pla
+	sta cwdblk+1
+	; finally, execute the original rune call
+	lda asav
+	ldx xsav
+	ldy ysav
+@jgo:	jmp $1122	; self-mod above
+
+; allocate Y pages, result pg in X
+@runealloc:
+	tya			; page count
+	clc			; round up to full blks for scan
+	adc #1
+	lsr
+	sta zarg		; save blk count for later
+	asl
+	sta tmp
+@loop:	lda limitrunepg
+	sec
+	sbc nextrunepg		; calculate how many remain in this area
+	cmp tmp
+	bcc @next
+	ldx nextrunepg		; save page to allocate
+	tya			; get back real # pages
+	clc
+	adc nextrunepg		; bump up the next rune pg
+	sta nextrunepg
+	rts
+@next:	lda limitrunepg
+	cmp #$20
+	bne @out
+	; Exhausted the space up to $2000; switch to $A000.BFFF
+	lda #$A0
+	sta nextrunepg
+	lda #$C0
+	sta limitrunepg
+	bne @loop		; always taken
+@out:	fatal "out of rune space"
+
+.endproc
+
+;*****************************************************************************
+_readblk:
+	lda #1		; alt entry point to read just one block
+	sta zarg
+.proc _readblks
+@cmd     = $42
+@unit    = $43
+@bufptr  = $44
+@blknum  = $46
+	sta @ld1+1	; mod code below
+	stx @ld2+1	; mod code below
+	; save contents of $42-47 on stack
+	ldx #0
+:	lda $42,x
+	pha
+	inx
+	cpx #6
+	bne :-
+	; set up parameters
+	lda #1		; read
+	sta @cmd
+	lda hddunit
+	sta @unit
+	lda #0
+	sta @bufptr
+	sty @bufptr+1	; target page still in Y
+@ld1:	lda #$11	; self-modified above
+	sta @blknum
+@ld2:	lda #$22	; self-modified above
+	sta @blknum+1
+@lup:	jsr callhdd
+	bcc_or_die "hdd read fail"
+	inc @blknum
+	bne :+
+	inc @blknum+1
+:	inc @bufptr+1
+	inc @bufptr+1
+	dec zarg	; more blocks?
+	bne @lup	; read more
+	; restore $42-47 from stack
+	ldx #5
+:	pla
+	sta $42,x
+	dex
+	bpl :-
+	rts
+.endproc
+callhdd: jmp $CF0A	; self-modified by startup
+
+;*****************************************************************************
+; Read a directory block to dirbuf; use cached blk if same as last time.
+; In:
+;	A/X - block num to read
+; Out: none (aborts on fail)
+.proc readdirblk
+	cmp curdirblk
+	bne @go
+	cpx curdirblk+1
+	bne @go
+	rts
+@go:	ldy #>dirbuf
+	sta curdirblk	; cache for next time
+	stx curdirblk+1
+	jmp _readblk
+.endproc
+
+;*****************************************************************************
+; Scan directory for a file - optional wildcard at end
+; In:
+; 	A/X - pascal-style (len-prefixed) filename to scan for
+; Out:
+;	clc on success, sec if not found
+;	A/X - blk num
+;	Y - length in pages
+wildscan:
+	ldy #$80
+	bne *+4		; skip ldy below
+.proc _dirscan
+	ldy #0
+@fname	= ptmp		; len 2
+@pscan	= ptmp2		; len 2
+@wflg	= tmp		; len 1
+@nblks	= tmp+1		; len 1
+@nmlen	= tmp2		; len 1
+@blknum	= tmp3		; len 2
+@setw:	sty @wflg
+	sta @fname
+	stx @fname+1
+	lda cwdblk	; cwd = current directory
+	sta @blknum
+	lda cwdblk+1
+	sta @blknum+1
+	lda #NDIRBLKS	; always 4
+	sta @nblks
+	lda #2
+@nxtbk:	sta @pscan	; skip over dir block header (2 bytes first, 0 bytes subsq)
+	ldy #>dirbuf
+	sty @pscan+1
+	dec @nblks
+	bmi @nofnd	; limit 4 blks per dir
+	lda @blknum
+	ldx @blknum+1
+	jsr readdirblk	; go read the blk (might be cached already)
+	inc @blknum	; advance for next time
+	bne @ckent
+	inc @blknum+1
+@ckent:	ldy #0
+	lda (@pscan),y	; get entry's name len
+	beq @nxtbk	; out of entries, read next dir blk
+			; (and set @pscan to buf start since next blk doesn't have free-num)
+	sta @nmlen	; save it for later
+	tax		; count for non-wild name chk
+	cmp (@fname),y
+	beq @cknam	; if same len, do normal chk
+	bcc @skip	; if entry name shorter than target name, skip.
+	bit @wflg	; ent name is longer than target...
+	bpl @skip	; ...so if no wild allowed, skip this ent
+	lda (@fname),y	; len of *target* name
+	tax		; ...is count for name chk
+@cknam:	iny
+	lda (@pscan),y
+	cmp (@fname),y
+	bne @skip
+	dex
+	bne @cknam
+@match:	lda @nmlen	; length of name...
+	sec		; 	+1 gets us to @blknum
+	adc @pscan
+	tay
+	bcc :+
+	inc @pscan+1
+:	ldy #0
+	lda (@pscan),y	; blk num lo
+	pha
+	iny
+	lda (@pscan),y	; blk num hi
+	tax
+	iny	
+	lda (@pscan),y	; length in pages
+	tay
+	pla		; get blk num lo back
+	clc		; signal success
+	rts
+@skip:	lda @nmlen
+	clc
+	adc #4		; adjust past len byte itself, plus @blknum and filelen
+	adc @pscan
+	sta @pscan
+	bcc @ckent
+	lda @pscan+1
+	inc @pscan+1
+	cmp #>dirbuf	; were we still on first pg of blk?
+	beq @ckent	; if so, keep checking
+@nofnd:	sec		; not found, error out
+	rts
+.endproc
+
+;*****************************************************************************
+_gotoxy:
+	stx cursx
+	sty cursy
 	; fall into bascalc...
 ;*****************************************************************************
 .proc bascalc
@@ -122,26 +444,25 @@ sety:	sta cursy
 .endproc
 
 ;*****************************************************************************
-.proc clrscr
+.proc _clrscr
 ; Clear entire screen
 ; leaves with cursx=0, cursy=0
-	lda #0
-	sta cursx
-@loop:	jsr sety
-	jsr clreol
+	jsr @zero
+@loop:	jsr clreol
+	inc cursy
+	jsr bascalc
 	lda cursy
-	clc
-	adc #1
 	cmp #24
 	bne @loop
-	lda #0
-	jmp sety
+@zero:	ldx #0
+	ldy #0
+	jmp gotoxy
 .endproc
 
 ;*****************************************************************************
-prspc:	lda #' '
+_prspc:	lda #' '
 	; fall into...
-.proc cout
+.proc _cout
 ; Write one character to the text screen. Advances cursx (and cursy if end of
 ; line)
 ; In:	A - char to write (hi bit ignored)
@@ -172,30 +493,31 @@ restregs:
 ;*****************************************************************************
 ; Advance to start of next line - scrolls if end of screen reached.
 ; Preserves A/X/Y
-crout:	stx xsav
+_crout:	stx xsav
 	sty ysav
 	pha
 	; fall into...
 .proc crout2
-	lda #0
-	sta cursx
+	ldx #0
+	stx cursx
 	inc cursy
 	lda cursy
 	cmp #24
 	beq @scrl
 	jsr bascalc
 	jmp restregs
-@scrl:	lda #0
-	jsr sety
+	; end of screen - scroll it up
+@scrl:	ldy #0
+	jsr _gotoxy	; x is already zero
 @sc1:	lda txtptre
-	sta @st+1		; self-modify target
+	sta @st+1	; modifies code below
 	lda txtptre+1
 	sta @st+2
 	inc cursy
 	jsr bascalc
 	ldy #39
 @cp:	lda (txtptre),y
-@st:	sta $1111,y		; self-modified above
+@st:	sta $1111,y	; self-modified above
 	dey
 	bpl @cp
 	lda cursy
@@ -206,7 +528,7 @@ crout:	stx xsav
 .endproc
 
 ;*****************************************************************************
-.proc prbyte
+.proc _prbyte
 	pha
 	lsr
 	lsr
@@ -222,204 +544,6 @@ crout:	stx xsav
 @letr:	clc
 	adc #'A'-$A
 	jmp cout
-.endproc
-
-;*****************************************************************************
-; Notes on setting character set:
-;   Slot 0:
-; 	878:char0-code	478:char0-pix0
-; 	87C:"           47C:char0-pix1
-; 	8F8:"           4F8:char0-pix2
-; 	8FC:"           4FC:char0-pix3
-; 	978:"           578:char0-pix4
-; 	97C:"           57C:char0-pix5
-; 	9F8:"           5F8:char0-pix6
-; 	9FC:"           5FC:char0-pix7
-;   Slot 1:
-; 	879:char1-code	479:char1-pix0
-; 	87D:"           47D:char1-pix1
-; 	8F9:"           4F9:char1-pix2
-; 	8FD:"           4FD:char1-pix3
-; 	979:"           579:char1-pix4
-; 	97D:"           57D:char1-pix5
-; 	9F9:"           5F9:char1-pix6
-; 	9FD:"           5FD:char1-pix7
-;   Slot 2:
-; 	87A:char2-code	47A:char2-pix0
-; 	87E:"           47E:char2-pix1
-; 	8FA:"           4FA:char2-pix2
-; 	8FE:"           4FE:char2-pix3
-; 	97A:"           57A:char2-pix4
-; 	97E:"           57E:char2-pix5
-; 	9FA:"           5FA:char2-pix6
-; 	9FE:"           5FE:char2-pix7
-;   Slot 3:
-; 	87B:char3-code	47B:char3-pix0
-; 	87F:"           47F:char3-pix1
-; 	8FB:"           4FB:char3-pix2
-; 	8FF:"           4FF:char3-pix3
-; 	97B:"           57B:char3-pix4
-; 	97F:"           57F:char3-pix5
-; 	9FB:"           5FB:char3-pix6
-; 	9FF:"           5FF:char3-pix7
-;   ** break in pattern **
-;   Slot 4:
-; 	A78:char4-code	678:char4-pix0
-; 	A7C:"           67C:char4-pix1
-; 	AF8:"           6F8:char4-pix2
-; 	AFC:"           6FC:char4-pix3
-; 	B78:"           778:char4-pix4
-; 	B7C:"           77C:char4-pix5
-; 	BF8:"           7F8:char4-pix6
-; 	BFC:"           7FC:char4-pix7
-;   Slot 5:
-; 	A79:char5-code	679:char5-pix0
-; 	A7D:"           67D:char5-pix1
-; 	AF9:"           6F9:char5-pix2
-; 	AFD:"           6FD:char5-pix3
-; 	B79:"           779:char5-pix4
-; 	B7D:"           77D:char5-pix5
-; 	BF9:"           7F9:char5-pix6
-; 	BFD:"           7FD:char5-pix7
-;   Slot 6:
-; 	A7A:char6-code	67A:char6-pix0
-; 	A7E:"           67E:char6-pix1
-; 	AFA:"           6FA:char6-pix2
-; 	AFE:"           6FE:char6-pix3
-; 	B7A:"           77A:char6-pix4
-; 	B7E:"           77E:char6-pix5
-; 	BFA:"           7FA:char6-pix6
-; 	BFE:"           7FE:char6-pix7
-;   Slot 7:
-; 	A7B:char7-code	67B:char7-pix0
-; 	A7F:"           67F:char7-pix1
-; 	AFB:"           6FB:char7-pix2
-; 	AFF:"           6FF:char7-pix3
-; 	B7B:"           77B:char7-pix4
-; 	B7F:"           77F:char7-pix5
-; 	BFB:"           7FB:char7-pix6
-; 	BFF:"           7FF:char7-pix7
-;
-; Sequence to fire:
-;	bit $C0DB	; CWRTON
-;	lda #$60
-;	jsr vretrace
-;	lda #$20
-;	jsr vretrace
-;	bit $C0DA	; CWRTOFF
-;	rts
-; vretrace:
-;	sta tmp
-;	lda $FFEC	; CB2CTRL
-;	and #$3F
-;	ora tmp
-;	sta $FFEC	; CB2CTRL
-;	lda #8
-;	sta $FFED	; CB2INT
-; @lup:	bit $FFED	; CB2INT
-;	beq @lup
-;	rts
-
-.proc trycharmap
-	lda $7d0
-	sta tmp
-@outer:	ldx #0
-@stoA:	lda tmp
-	; char num (all the same)
-	sta $878,x
-	sta $87C,x
-	sta $8F8,x
-	sta $8FC,x
-	sta $978,x
-	sta $97C,x
-	sta $9F8,x
-	sta $9FC,x
-	; pattern
-	sta $478,x
-	rol
-	sta $47C,x
-	rol
-	sta $4F8,x
-	rol
-	sta $4FC,x
-	rol
-	sta $578,x
-	rol
-	sta $57C,x
-	rol
-	sta $5F8,x
-	rol
-	sta $5FC,x
-	inc tmp
-@stoB:	lda tmp
-	; char num (all the same)
-	sta $A78,x
-	sta $A7C,x
-	sta $AF8,x
-	sta $AFC,x
-	sta $B78,x
-	sta $B7C,x
-	sta $BF8,x
-	sta $BFC,x
-	; pattern
-	sta $678,x
-	rol
-	sta $67C,x
-	rol
-	sta $6F8,x
-	rol
-	sta $6FC,x
-	rol
-	sta $778,x
-	rol
-	sta $77C,x
-	rol
-	sta $7F8,x
-	rol
-	sta $7FC,x
-	inc tmp
-	inx
-	cpx #4
-	bne @stoA
-
-	lda CWRTON
-	lda #$60
-	jsr @vretr
-	lda #$20
-	jsr @vretr
-	lda CWRTOFF
-	rts
-
-@vretr:	sta @or+1	; mod self below
-	lda CB2CTRL
-	and #$1F
-@or:	ora #$22	; self-mod above
-	sta CB2CTRL
-	lda #8
-	sta CB2INT
-@lup:	lda CB2INT
-	and #8
-	beq @lup
-	rts
-.endproc
-
-.proc showallchars
-	jsr clrscr
-	lda #0
-	sta tmp
-@row:	ldy #0
-@rlup:	lda tmp
-	sta (txtptre),y
-	inc tmp
-	iny
-	cpy #16
-	bne @rlup
-	inc cursy
-	jsr bascalc
-	lda cursy
-	cmp #16
-	bne @row
-	rts
 .endproc
 
 ;*****************************************************************************
@@ -510,7 +634,7 @@ a2brk:	; put things back the way native brk would be
 	pha
 	lda $48		; preg
 	pha
-	lda $45		; areg
+	lda $45
 	ldx $46
 	ldy $47
 .proc brkhnd
@@ -525,36 +649,41 @@ a2brk:	; put things back the way native brk would be
 	lda $102,x
 	sec
 	sbc #1
-	sta pstr
+	sta @ld1+1	; mod self below
+	sta @ld2+1
 	lda $103,x
 	sbc #0
-	sta pstr+1
-	ldy #0
-	lda (pstr),y
-	beq @rbrk	; BRK 00 means a real brk
+	sta @ld1+1	; mod self below
+	sta @ld2+1
+	ldx #0
+@ld1:	lda $1111	; first byte
+	beq @bkpnt	; BRK 00 means actual breakpoint
 	cmp #$20
-	bcc @adv	; < $20 means len-prefixed string; skip over it
-	; otherwise, print zero-terminated string
-@scanz:	jsr cout
-	iny
-	lda (pstr),y	; find terminator
+	bcs @scanz	; >= $20 means to print zero-terminated string
+	lda @ld1+1	; len-prefixed str - put its ptr in A/X
+	sta areg
+	lda @ld2+1
+	sta xreg
+	bcs @adv	; always taken
+@scanz:	jsr _cout	; print char
+	inx
+@ld2:	lda $1111,x	; find terminator
 	bne @scanz
-	tya
+	txa
 @adv:	sec		; advance over the terminator (or over the len pfx)
-	adc pstr
+	adc $102,x	; ret adr lo
 	sta $102,x
-	bcc @ret
-	inc $103,x
-@ret:	lda areg
+	bcc :+
+	inc $103,x	; ret adr hi
+:	lda areg
 	ldx xreg
 	ldy yreg
 @irq:	rti
 
-; really brk (brk 00) - print location and registers
-@rbrk:	lda #22
-	jsr sety
-	lda #0
-	sta cursx
+; breakpoint (BRK 00) - print location and registers
+@bkpnt:	ldy #22
+	ldx #0
+	jsr _gotoxy
 	pla		; p reg
 	tay		; save it aside
 	pla		; PC lo
@@ -562,12 +691,12 @@ a2brk:	; put things back the way native brk would be
 	tax
 	pla		; PC hi
 	sbc #0
-	jsr prbyte
+	jsr _prbyte
 	txa
-	jsr prbyte
+	jsr _prbyte
 	lda #':'
-	jsr cout
-	jsr prspc
+	jsr _cout
+	jsr _prspc
 	; print all registers
 	ldx areg
 	lda #'A'
@@ -585,16 +714,39 @@ a2brk:	; put things back the way native brk would be
 	tsx		; happily we've popped everything, so this is the real caller S reg
 	lda #'S'
 	jsr @preg
-	jsr crout
+	jsr _crout
 	; jump to platform-specific system monitor for now
 	jmp gosysmon
 
-@preg:	jsr cout
+@preg:	jsr _cout
 	lda #'='
-	jsr cout
+	jsr _cout
 	txa
-	jsr prbyte
-	jmp prspc
+	jsr _prbyte
+	jmp _prspc
+.endproc
+
+;*****************************************************************************
+.proc _fatal
+; On last line, print "Fatal error: ", then pstring in A/X, then go to monitor
+	sta ptmp
+	stx ptmp+1
+	ldx #0
+	ldy #23
+	jsr _gotoxy
+	jsr _crout
+	print "Fatal error: "
+	ldy #0
+	lda (ptmp),y	; str len
+	tax
+	iny
+@lup:	lda (ptmp),y
+	jsr _cout
+	iny
+	dex
+	bne @lup
+	jsr _crout
+	jmp gosysmon
 .endproc
 
 ;*****************************************************************************
@@ -616,15 +768,45 @@ a2brk:	; put things back the way native brk would be
 a3flg:	.byte 0
 cursx:	.byte 0
 cursy:	.byte 0
-; saves used by cout:
+; reg saves used by cout and other routines
 asav:	.byte 0
 xsav:	.byte 0
 ysav:	.byte 0
-; saves used by brkhnd:
+; reg saves used by brkhnd
 areg:	.byte 0
 xreg:	.byte 0
 yreg:	.byte 0
 
+; rune allocation global vars
+nextrunepg:	.byte 0
+limitrunepg:	.byte 0
+lastrunepg:	.byte 0
+
+; directory global vars
+hddunit:	.byte 0
+cwdblk:		.word 0
+curdirblk:	.word 0
+runesdirblk:	.word 0
+
+runefn:		.byte 2, "00" ; length + 2 digits
+
+;*****************************************************************************
+	.align 32
+rune0vecs:	; rune 0 = kernel services
+	jmp _resetrunes
+	jmp _fatal
+	jmp _readblks
+	jmp _dirscan
+	.align 32,$EA	; rune vecs always total 32 bytes
+rune1vecs:	; rune 1 = text services
+	jmp _clrscr
+	jmp _gotoxy
+	jmp _cout
+	jmp _crout
+	jmp _prbyte
+	.align 32,$EA	; rune vecs always total 32 bytes
+
+;*****************************************************************************
 	.align 256
 inslen_t:
 	.byte 1,2,1,1,1,2,2,1,1,2,1,1,1,3,3,1
@@ -643,3 +825,6 @@ inslen_t:
 	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
 	.byte 2,2,1,1,2,2,2,1,1,2,1,1,3,3,3,1
 	.byte 2,2,1,1,1,2,2,1,1,3,1,1,1,3,3,1
+
+dirbuf	= *
+kernelend = dirbuf+$200

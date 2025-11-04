@@ -92,7 +92,7 @@ rdkrn:	pha		; save blk count
 	sec
 	sbc #1
 	bne rdkrn
-	; and jump to it to continue the boot process
+	; and jump to the kernel to continue the boot process
 	jmp krnorg	
 
 kernfn:	.byte 5		; len
