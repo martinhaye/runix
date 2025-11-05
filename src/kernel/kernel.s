@@ -148,7 +148,7 @@ NDIRBLKS = 4
 	lda runesdirblk,x
 	sta cwdblk,x
 	dex
-	bne :-
+	bpl :-
 	; search for the rune with wildcard
 	lda #<runefn
 	ldx #>runefn
@@ -163,10 +163,11 @@ NDIRBLKS = 4
 	stx @ldtpg+1	; modify code - target page
 	stx @cpvec+2	; mod code below for vector copy later
 	; read the rune
+	txa
+	tay		; target page now in Y
 	pla		; we stashed blk num on stack earlier
 	tax
 	pla
-	; y already contains target page
 	jsr _readblks	; read in the rune code
 	; process the code relocation
 	lda #$20	; rune code is always org $2000
@@ -177,7 +178,7 @@ NDIRBLKS = 4
 	ldx #$1F
 @cpvec:	lda $1100,x	; self-modified above
 @rvec:	sta $C00,x	; self-modified earlier
-	dey
+	dex
 	bpl @cpvec
 	; restore orig cwd
 	pla
@@ -225,9 +226,17 @@ NDIRBLKS = 4
 
 ;*****************************************************************************
 _readblk:
+; Read one blocka number of blocks
+; In:	A/X - block num
+;	Y - target page
 	lda #1		; alt entry point to read just one block
 	sta zarg
 .proc _readblks
+; Read a number of blocks
+; In:	A/X - block num
+;	Y - target page
+;	zarg - number of blocks
+; Out:	aborts on failure; no need to check result.
 @cmd     = $42
 @unit    = $43
 @bufptr  = $44
@@ -636,15 +645,15 @@ a2brk:	; put things back the way native brk would be
 	and #$10
 	beq @irq	; for now, do nothing on real IRQ
 	tsx
-	lda $102,x
+	lda $102,x	; ret addr lo byte
 	sec
-	sbc #1
+	sbc #1		; back to 1st byte after brk
 	sta @ld1+1	; mod self below
 	sta @ld2+1
-	lda $103,x
+	lda $103,x	; ret addr hi byte
 	sbc #0
-	sta @ld1+1	; mod self below
-	sta @ld2+1
+	sta @ld1+2	; mod self below
+	sta @ld2+2
 	ldx #0
 @ld1:	lda $1111	; first byte
 	beq @bkpnt	; BRK 00 means actual breakpoint
