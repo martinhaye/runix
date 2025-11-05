@@ -3,12 +3,21 @@
 
         .org $2000
 
+.include "base.i"
+
+; Hardware addresses
+CWRTON	= $C0DB
+CWRTOFF	= $C0DA
+CB2CTRL	= $FFEC
+CB2INT	= $FFED
+
 	; API jump vectors
 	jmp load_default_font
 	.align 32,$EA
 
 ;*****************************************************************************
 load_default_font:
+	; test code for now
 	jsr showallchars
 @try:	jsr trycharmap
 	lda $7D0
@@ -209,10 +218,8 @@ load_default_font:
 	iny
 	cpy #16
 	bne @rlup
-	inc cursy
-	jsr bascalc
-	lda cursy
-	cmp #16
+	jsr crout
+	lda tmp
 	bne @row
 	rts
 .endproc

@@ -43,7 +43,7 @@
 **Block Layout:**
 
 - Block 0: Boot loader
-  - Starts with magic: `01 D2 F5 EE E9 F8` (spells "\1Runix")
+  - Starts with magic: `01 52 75 6E 69 78` (spells "\1Runix")
   - Disassembles cleanly and executes harmlessly
 - Blocks 1-4: Root directory (4 blocks = 2KB, ~100 entries)
 - Block 5+: Files and subdirectories
@@ -68,6 +68,7 @@
 - Unix-style lowercase filenames
 - Runes stored in `/runes/` subdirectory
 - Runes named as `XX-description` (e.g., `00-system`, `01-example`)
+  - the number is the only significant part to the system when it's matching rune filenames
 - First file in root must be `runix` for bootability
 
 ### Boot Process
@@ -75,7 +76,7 @@
 1. Apple III loads block 0 from floppy to `$A000`, jumps to it (external bootloader)
 2. Scan slots for mass storage card (highest to lowest)
 3. Load block 0 from disk to `$0800`, jump to it
-4. Block 0 loader: read root dir (block 1), verify `runix.kernel` exists
+4. Block 0 loader: read root dir (block 1), verify `runix` exists
 5. Load kernel blocks to `$0E00`
 6. Jump to kernel
 
@@ -89,7 +90,7 @@ Instead of using `BRK` for interrupts, Runix uses it for inline strings:
 lda #1
 ldx #2
 PRINT "Foo %x"    ; prints "Foo $201"
-; Encoding: 00 C6 EF EF A0 A5 F8 00
+; Encoding: 00 46 6F 6F 20 25 78 00
 ```
 
 Format codes:
@@ -103,7 +104,7 @@ Format codes:
 
 ```asm
 LDSTR "Foobar"    ; points A/X to length-prefixed string
-; Encoding: 00 06 C6 EF EF E2 E1 F2
+; Encoding: 00 06 46 6F 6F 62 61 72
 ```
 
 ## Build System

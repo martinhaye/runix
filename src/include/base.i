@@ -7,6 +7,10 @@ tmp2	= $A
 tmp3	= $C
 zarg	= $E
 
+; Kernel-specific zero-page
+txtptre	= $F2
+txtptro	= $F4
+
 ;*****************************************************************************
 ; Rune 0 (kernel) vectors
 resetrunes	= $C00

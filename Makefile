@@ -83,8 +83,7 @@ deploy: $(IMAGE)
 		$(RSYNC) $(IMAGE) $(DEPLOY_TARGET); \
 		echo "Deployed successfully"; \
 	else \
-		echo "ERROR: Disk server $(DISKSERVER) not found on network"; \
-		exit 1; \
+		echo "Note: Disk server $(DISKSERVER) not found on network"; \
 	fi
 
 clean:

@@ -5,16 +5,6 @@
 ; Always loads at $0E00
 	.org $0E00
 
-; Zero-page - keep minimal for kernel!
-txtptre	= $F2
-txtptro	= $F4
-
-; Hardware addresses
-CWRTON	= $C0DB
-CWRTOFF	= $C0DA
-CB2CTRL	= $FFEC
-CB2INT	= $FFED
-
 ; ROM locations
 a2mon	= $FF65
 a3mon	= $F901
