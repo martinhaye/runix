@@ -50,6 +50,7 @@ NDIRBLKS = 4
 	jsr _clrscr
 	print "Welcome to Runix 0.1\n"
 	jsr _resetrunes
+
 	; set cwd = root dir (block 1)
 	ldx #1
 	stx cwdblk
@@ -430,7 +431,7 @@ _gotoxy:
 .endproc
 
 ;*****************************************************************************
-.proc clreol
+.proc _clreol
 ; Clear current line from curx to end
 ; Doesn't modify cursx
 	ldy cursx
@@ -447,7 +448,7 @@ _gotoxy:
 ; Clear entire screen
 ; leaves with cursx=0, cursy=0
 	jsr @zero
-@loop:	jsr clreol
+@loop:	jsr _clreol
 	inc cursy
 	jsr bascalc
 	lda cursy
@@ -455,7 +456,7 @@ _gotoxy:
 	bne @loop
 @zero:	ldx #0
 	ldy #0
-	jmp gotoxy
+	jmp _gotoxy
 .endproc
 
 ;*****************************************************************************
@@ -522,7 +523,7 @@ _crout:	stx xsav
 	lda cursy
 	cmp #23
 	bne @sc1
-	jsr clreol
+	jsr _clreol
 	jmp restregs
 .endproc
 
@@ -650,26 +651,27 @@ a2brk:	; put things back the way native brk would be
 	sbc #1		; back to 1st byte after brk
 	sta @ld1+1	; mod self below
 	sta @ld2+1
+	tay		; save for later
 	lda $103,x	; ret addr hi byte
 	sbc #0
 	sta @ld1+2	; mod self below
 	sta @ld2+2
-	ldx #0
+	tax		; save for later
 @ld1:	lda $1111	; first byte
 	beq @bkpnt	; BRK 00 means actual breakpoint
 	cmp #$20
-	bcs @scanz	; >= $20 means to print zero-terminated string
-	lda @ld1+1	; len-prefixed str - put its ptr in A/X
-	sta areg
-	lda @ld2+1
-	sta xreg
-	bcs @adv	; always taken
+	bcs @print	; >= $20 means to print zero-terminated string
+	sty areg	; len-prefixed str - put its ptr in A/X (loaded on ret)
+	stx xreg
+	bcc @adv	; always taken
+@print:	ldx #0
 @scanz:	jsr _cout	; print char
 	inx
 @ld2:	lda $1111,x	; find terminator
 	bne @scanz
 	txa
-@adv:	sec		; advance over the terminator (or over the len pfx)
+@adv:	tsx
+	sec		; advance over the terminator (or over the len pfx)
 	adc $102,x	; ret adr lo
 	sta $102,x
 	bcc :+
