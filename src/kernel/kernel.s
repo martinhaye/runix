@@ -50,7 +50,6 @@ NDIRBLKS = 4
 	jsr _clrscr
 	print "Welcome to Runix 0.1\n"
 	jsr _resetrunes
-
 	; set cwd = root dir (block 1)
 	ldx #1
 	stx cwdblk
@@ -73,11 +72,10 @@ NDIRBLKS = 4
 ;*****************************************************************************
 .proc _resetrunes
 	; set up the dummy rune API vectors
-	lda #0
-	sta ptmp
 	lda #$C
 	sta ptmp+1
 	ldy #0
+	sty ptmp
 	sty tmp
 @crune:	lda rune0vecs,y	; rune0 is the kernel naturally
 	sta (ptmp),y
@@ -671,7 +669,7 @@ a2brk:	; put things back the way native brk would be
 	bne @scanz
 	txa
 @adv:	tsx
-	sec		; advance over the terminator (or over the len pfx)
+	clc		; no need to add 1, since brk already did it
 	adc $102,x	; ret adr lo
 	sta $102,x
 	bcc :+
