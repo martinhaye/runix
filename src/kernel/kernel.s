@@ -61,10 +61,8 @@ NDIRBLKS = 4
 	bcc_or_die "no runes dir"
 	sta runesdirblk
 	stx runesdirblk+1
-
 	; load the default font
 	jsr $C40	; rune 2, vector 0: this will shock-load rune 2
-
 	; we don't have a shell yet - start system monitor for inspection
 	jmp gosysmon
 .endproc
@@ -126,7 +124,7 @@ NDIRBLKS = 4
 	and #$E0	; 00, 20, 40, etc.
 	sta @rvec+1	; ptr to start of rune vecs, for later
 	tay		; save temporarily
-	lda $102,x	; retadr hi
+	pla
 	sbc #0
 	sta @jgo+2	; modifies code below
 	sta @rvec+2	; ptr hi for start of rune vecs, for later
@@ -228,8 +226,10 @@ _readblk:
 ; Read one blocka number of blocks
 ; In:	A/X - block num
 ;	Y - target page
+	pha
 	lda #1		; alt entry point to read just one block
 	sta zarg
+	pla
 .proc _readblks
 ; Read a number of blocks
 ; In:	A/X - block num
@@ -294,6 +294,7 @@ callhdd: jmp $CF0A	; self-modified by startup
 @go:	ldy #>dirbuf
 	sta curdirblk	; cache for next time
 	stx curdirblk+1
+	jsr prbyte
 	jmp _readblk
 .endproc
 
@@ -356,13 +357,8 @@ wildscan:
 	bne @skip
 	dex
 	bne @cknam
-@match:	lda @nmlen	; length of name...
-	sec		; 	+1 gets us to @blknum
-	adc @pscan
-	tay
-	bcc :+
-	inc @pscan+1
-:	ldy #0
+@match:	ldy @nmlen	; length of name...
+	iny		; 	+1 gets us to @blknum
 	lda (@pscan),y	; blk num lo
 	pha
 	iny
@@ -527,6 +523,8 @@ _crout:	stx xsav
 
 ;*****************************************************************************
 .proc _prbyte
+; preserves all regs except P
+	pha
 	pha
 	lsr
 	lsr
@@ -535,6 +533,9 @@ _crout:	stx xsav
 	jsr @prdig
 	pla
 	and #$F
+	jsr @prdig
+	pla
+	rts
 @prdig:	cmp #$A
 	bcs @letr
 	adc #'0'
@@ -656,7 +657,7 @@ a2brk:	; put things back the way native brk would be
 	sta @ld2+2
 	tax		; save for later
 @ld1:	lda $1111	; first byte
-	beq @bkpnt	; BRK 00 means actual breakpoint
+	beq @bkpnt	; BRK+00 means actual breakpoint
 	cmp #$20
 	bcs @print	; >= $20 means to print zero-terminated string
 	sty areg	; len-prefixed str - put its ptr in A/X (loaded on ret)
@@ -679,10 +680,8 @@ a2brk:	; put things back the way native brk would be
 	ldy yreg
 @irq:	rti
 
-; breakpoint (BRK 00) - print location and registers
-@bkpnt:	ldy #22
-	ldx #0
-	jsr _gotoxy
+; breakpoint (BRK+00) - print location and registers
+@bkpnt:	jsr _crout	; always start on next new line
 	pla		; p reg
 	tay		; save it aside
 	pla		; PC lo
@@ -730,10 +729,7 @@ a2brk:	; put things back the way native brk would be
 ; On last line, print "Fatal error: ", then pstring in A/X, then go to monitor
 	sta ptmp
 	stx ptmp+1
-	ldx #0
-	ldy #23
-	jsr _gotoxy
-	jsr _crout
+	jsr _crout	; always start on next fresh line
 	print "Fatal error: "
 	ldy #0
 	lda (ptmp),y	; str len
@@ -752,12 +748,14 @@ a2brk:	; put things back the way native brk would be
 .proc gosysmon
 	bit a3flg
 	bpl @a2
-@a3:	lda #23
+@a3:	lda cursy
 	sta $5D
 	jsr $FBC7	; a3 bascalc
 	jmp a3mon
-@a2:	lda #21
-	sta $25
+@a2:	ldx cursy
+	dex
+	dex
+	stx $25
 	jsr $FD8E	; a2 crout
 	jmp a2mon
 .endproc
