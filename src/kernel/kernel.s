@@ -223,7 +223,7 @@ NDIRBLKS = 4
 
 ;*****************************************************************************
 _readblk:
-; Read one blocka number of blocks
+; Read one block
 ; In:	A/X - block num
 ;	Y - target page
 	pha
@@ -282,8 +282,7 @@ callhdd: jmp $CF0A	; self-modified by startup
 
 ;*****************************************************************************
 ; Read a directory block to dirbuf; use cached blk if same as last time.
-; In:
-;	A/X - block num to read
+; In: ;	A/X - block num to read
 ; Out: none (aborts on fail)
 .proc readdirblk
 	cmp curdirblk
@@ -294,7 +293,6 @@ callhdd: jmp $CF0A	; self-modified by startup
 @go:	ldy #>dirbuf
 	sta curdirblk	; cache for next time
 	stx curdirblk+1
-	jsr prbyte
 	jmp _readblk
 .endproc
 
