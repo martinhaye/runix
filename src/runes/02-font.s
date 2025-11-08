@@ -16,117 +16,124 @@ CB2INT	= $FFED
 	.align 32,$EA
 
 ;*****************************************************************************
-load_default_font:
-	; test code for now
+.proc load_default_font
+	; show the character set for now, so we can verify proper operation
 	jsr showallchars
-@try:	jsr trycharmap
-	lda $7D0
+	bit basefont
+	ldx *-1		; relocation-friendly way of getting base font page
+	jsr backfill
+	jmp *		; hang forever
+.endproc
+
+;*****************************************************************************
+.proc backfill
+; Backfills just the lower case character codes ($60-$7F) from a full font.
+; in:	X - first page of font
+
+; Fonts start at code $20, so we need to skip forward $40 codes x 8 bytes,
+; or 512 bytes, or 2 pages.
+	inx
+	inx
+	stx ptmp+1
+	lda #0
+	sta ptmp
+	lda #$60	; start with code $60
+	sta tmp
+@lup:	jsr send8
+	lda ptmp
 	clc
-	adc #8
-	sta $7D0
-	jmp @try	; loop forever
+	adc #8*8
+	sta ptmp
+	bcc :+
+	inc ptmp+1
+:	lda tmp
+	bne @lup	; do all codes thru $FF
+	rts
+.endproc
 
 ;*****************************************************************************
 ; Notes on setting character set:
 ;   Slot 0:
-; 	878:char0-code	478:char0-pix0
-; 	87C:"           47C:char0-pix1
-; 	8F8:"           4F8:char0-pix2
-; 	8FC:"           4FC:char0-pix3
-; 	978:"           578:char0-pix4
-; 	97C:"           57C:char0-pix5
-; 	9F8:"           5F8:char0-pix6
-; 	9FC:"           5FC:char0-pix7
+; 	878:char0-code	478:char0-pixbyte0
+; 	87C:"           47C:char0-pixbyte1
+; 	8F8:"           4F8:char0-pixbyte2
+; 	8FC:"           4FC:char0-pixbyte3
+; 	978:"           578:char0-pixbyte4
+; 	97C:"           57C:char0-pixbyte5
+; 	9F8:"           5F8:char0-pixbyte6
+; 	9FC:"           5FC:char0-pixbyte7
 ;   Slot 1:
-; 	879:char1-code	479:char1-pix0
-; 	87D:"           47D:char1-pix1
-; 	8F9:"           4F9:char1-pix2
-; 	8FD:"           4FD:char1-pix3
-; 	979:"           579:char1-pix4
-; 	97D:"           57D:char1-pix5
-; 	9F9:"           5F9:char1-pix6
-; 	9FD:"           5FD:char1-pix7
+; 	879:char1-code	479:char1-pixbyte0
+; 	87D:"           47D:char1-pixbyte1
+; 	8F9:"           4F9:char1-pixbyte2
+; 	8FD:"           4FD:char1-pixbyte3
+; 	979:"           579:char1-pixbyte4
+; 	97D:"           57D:char1-pixbyte5
+; 	9F9:"           5F9:char1-pixbyte6
+; 	9FD:"           5FD:char1-pixbyte7
 ;   Slot 2:
-; 	87A:char2-code	47A:char2-pix0
-; 	87E:"           47E:char2-pix1
-; 	8FA:"           4FA:char2-pix2
-; 	8FE:"           4FE:char2-pix3
-; 	97A:"           57A:char2-pix4
-; 	97E:"           57E:char2-pix5
-; 	9FA:"           5FA:char2-pix6
-; 	9FE:"           5FE:char2-pix7
+; 	87A:char2-code	47A:char2-pixbyte0
+; 	87E:"           47E:char2-pixbyte1
+; 	8FA:"           4FA:char2-pixbyte2
+; 	8FE:"           4FE:char2-pixbyte3
+; 	97A:"           57A:char2-pixbyte4
+; 	97E:"           57E:char2-pixbyte5
+; 	9FA:"           5FA:char2-pixbyte6
+; 	9FE:"           5FE:char2-pixbyte7
 ;   Slot 3:
-; 	87B:char3-code	47B:char3-pix0
-; 	87F:"           47F:char3-pix1
-; 	8FB:"           4FB:char3-pix2
-; 	8FF:"           4FF:char3-pix3
-; 	97B:"           57B:char3-pix4
-; 	97F:"           57F:char3-pix5
-; 	9FB:"           5FB:char3-pix6
-; 	9FF:"           5FF:char3-pix7
+; 	87B:char3-code	47B:char3-pixbyte0
+; 	87F:"           47F:char3-pixbyte1
+; 	8FB:"           4FB:char3-pixbyte2
+; 	8FF:"           4FF:char3-pixbyte3
+; 	97B:"           57B:char3-pixbyte4
+; 	97F:"           57F:char3-pixbyte5
+; 	9FB:"           5FB:char3-pixbyte6
+; 	9FF:"           5FF:char3-pixbyte7
 ;   ** break in pattern **
 ;   Slot 4:
-; 	A78:char4-code	678:char4-pix0
-; 	A7C:"           67C:char4-pix1
-; 	AF8:"           6F8:char4-pix2
-; 	AFC:"           6FC:char4-pix3
-; 	B78:"           778:char4-pix4
-; 	B7C:"           77C:char4-pix5
-; 	BF8:"           7F8:char4-pix6
-; 	BFC:"           7FC:char4-pix7
+; 	A78:char4-code	678:char4-pixbyte0
+; 	A7C:"           67C:char4-pixbyte1
+; 	AF8:"           6F8:char4-pixbyte2
+; 	AFC:"           6FC:char4-pixbyte3
+; 	B78:"           778:char4-pixbyte4
+; 	B7C:"           77C:char4-pixbyte5
+; 	BF8:"           7F8:char4-pixbyte6
+; 	BFC:"           7FC:char4-pixbyte7
 ;   Slot 5:
-; 	A79:char5-code	679:char5-pix0
-; 	A7D:"           67D:char5-pix1
-; 	AF9:"           6F9:char5-pix2
-; 	AFD:"           6FD:char5-pix3
-; 	B79:"           779:char5-pix4
-; 	B7D:"           77D:char5-pix5
-; 	BF9:"           7F9:char5-pix6
-; 	BFD:"           7FD:char5-pix7
+; 	A79:char5-code	679:char5-pixbyte0
+; 	A7D:"           67D:char5-pixbyte1
+; 	AF9:"           6F9:char5-pixbyte2
+; 	AFD:"           6FD:char5-pixbyte3
+; 	B79:"           779:char5-pixbyte4
+; 	B7D:"           77D:char5-pixbyte5
+; 	BF9:"           7F9:char5-pixbyte6
+; 	BFD:"           7FD:char5-pixbyte7
 ;   Slot 6:
-; 	A7A:char6-code	67A:char6-pix0
-; 	A7E:"           67E:char6-pix1
-; 	AFA:"           6FA:char6-pix2
-; 	AFE:"           6FE:char6-pix3
-; 	B7A:"           77A:char6-pix4
-; 	B7E:"           77E:char6-pix5
-; 	BFA:"           7FA:char6-pix6
-; 	BFE:"           7FE:char6-pix7
+; 	A7A:char6-code	67A:char6-pixbyte0
+; 	A7E:"           67E:char6-pixbyte1
+; 	AFA:"           6FA:char6-pixbyte2
+; 	AFE:"           6FE:char6-pixbyte3
+; 	B7A:"           77A:char6-pixbyte4
+; 	B7E:"           77E:char6-pixbyte5
+; 	BFA:"           7FA:char6-pixbyte6
+; 	BFE:"           7FE:char6-pixbyte7
 ;   Slot 7:
-; 	A7B:char7-code	67B:char7-pix0
-; 	A7F:"           67F:char7-pix1
-; 	AFB:"           6FB:char7-pix2
-; 	AFF:"           6FF:char7-pix3
-; 	B7B:"           77B:char7-pix4
-; 	B7F:"           77F:char7-pix5
-; 	BFB:"           7FB:char7-pix6
-; 	BFF:"           7FF:char7-pix7
-;
-; Sequence to fire:
-;	bit $C0DB	; CWRTON
-;	lda #$60
-;	jsr vretrace
-;	lda #$20
-;	jsr vretrace
-;	bit $C0DA	; CWRTOFF
-;	rts
-; vretrace:
-;	sta tmp
-;	lda $FFEC	; CB2CTRL
-;	and #$3F
-;	ora tmp
-;	sta $FFEC	; CB2CTRL
-;	lda #8
-;	sta $FFED	; CB2INT
-; @lup:	bit $FFED	; CB2INT
-;	beq @lup
-;	rts
+; 	A7B:char7-code	67B:char7-pixbyte0
+; 	A7F:"           67F:char7-pixbyte1
+; 	AFB:"           6FB:char7-pixbyte2
+; 	AFF:"           6FF:char7-pixbyte3
+; 	B7B:"           77B:char7-pixbyte4
+; 	B7F:"           77F:char7-pixbyte5
+; 	BFB:"           7FB:char7-pixbyte6
+; 	BFF:"           7FF:char7-pixbyte7
 
 ;*****************************************************************************
-.proc trycharmap
-	lda $7d0
-	sta tmp
-@outer:	ldx #0
+.proc send8
+; Send 8 character bitmaps to the font RAM via screen holes.
+; In:	ptmp - pointer to character bitmaps
+;	tmp - character number (will be advanced 8 times)
+	ldy #0		; index into char data
+@outer:	ldx #0		; index into screen holes
 @stoA:	lda tmp
 	; char num (all the same)
 	sta $878,x
@@ -138,20 +145,29 @@ load_default_font:
 	sta $9F8,x
 	sta $9FC,x
 	; pattern
+	lda (ptmp),y
+	iny
 	sta $478,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $47C,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $4F8,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $4FC,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $578,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $57C,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $5F8,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $5FC,x
 	inc tmp
 @stoB:	lda tmp
@@ -165,27 +181,39 @@ load_default_font:
 	sta $BF8,x
 	sta $BFC,x
 	; pattern
+	lda (ptmp),y
+	iny
 	sta $678,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $67C,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $6F8,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $6FC,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $778,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $77C,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $7F8,x
-	rol
+	lda (ptmp),y
+	iny
 	sta $7FC,x
 	inc tmp
 	inx
 	cpx #4
-	bne @stoA
-
-	lda CWRTON
+	beq @go
+	jmp @stoA	; too far for a relative branch
+; Now trigger the hardware to pick up the data from the screen holes.
+; Give it at least a scan between vertical retraces to complete.
+; (at least, I think that's what we're doing here)
+@go:	lda CWRTON
 	lda #$60
 	jsr @vretr
 	lda #$20
@@ -223,5 +251,9 @@ load_default_font:
 	bne @row
 	rts
 .endproc
+
+	.align 256
+basefont:
+.include "base_font.s"
 
         rts
