@@ -1,6 +1,7 @@
 ; Runix shell
-; Loads at $6000 (bank 3)
+; Loads somewhere $2000-$AFFF; always org at $1000 so relocator knows what to do
 
-        .org $2000
+        .org $1000
 
-        rts
+:	inc $7F0
+	jmp :-

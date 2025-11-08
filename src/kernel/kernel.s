@@ -61,10 +61,22 @@ NDIRBLKS = 4
 	bcc_or_die "no runes dir"
 	sta runesdirblk
 	stx runesdirblk+1
-	; load the default font
+	; Also find the "bin" subdir
+	ldstr "bin"
+	jsr _dirscan
+	bcc_or_die "no bin dir"
+	sta bindirblk
+	stx bindirblk+1
+	; On the Apple III, we need to back-fill lowercase chars
+	bit a3flg
+	bpl :+
 	jsr $C40	; rune 2, vector 0: this will shock-load rune 2
-	; we don't have a shell yet - start system monitor for inspection
-	jmp gosysmon
+:	; Now run the shell
+	ldx #$20	; start allocating program space at $2000
+	jsr _progreset
+	ldstr "shell"
+	jsr _progrun
+	qfatal
 .endproc
 
 ;*****************************************************************************
@@ -188,7 +200,10 @@ NDIRBLKS = 4
 	ldy ysav
 @jgo:	jmp $1122	; self-mod above
 
-; allocate Y pages, result pg in X
+; allocate Y pages for rune space, result pg in X
+; guarantees safety of reading by block until the next
+; allocation - while it doesn't allocate double-pages, 
+; it ensures it could have.
 @runealloc:
 	tya			; page count
 	clc			; round up to full blks for scan
@@ -218,7 +233,134 @@ NDIRBLKS = 4
 	sta limitrunepg
 	bne @loop		; always taken
 @out:	fatal "out of rune space"
+.endproc
 
+;*****************************************************************************
+; Get the program space mark (useful for later reset)
+; Out:	X - page number that would next be allocated
+.proc _progmark
+	ldx nextprogpg
+	rts
+.endproc
+
+;*****************************************************************************
+; Reset the program space mark (throws away allocations from that point on),
+; usually with the prior result of progmark
+; In:	X - page number to allocate next
+.proc _progreset
+	stx nextprogpg
+	cpx #$20
+	bcc @bad
+	cpx #$A0
+	bcs @bad
+	ldx #$A0
+	sta limitprogpg
+	rts
+@bad:	qfatal	; don't waste space on a fancy message - this shouldn't happen
+.endproc
+
+;*****************************************************************************
+; Allocate program space
+; In:	Y - # pages
+; Out:	X - page number allocated
+; Guarantees safety of reading by block until the next allocation - while it 
+; doesn't allocate double-pages, it ensures it could have.
+.proc _progalloc
+	tya			; page count
+	clc			; round up to full blks for check
+	adc #1
+	lsr
+	asl
+	sta tmp			; # pages to check for
+	lda limitprogpg
+	sec
+	sbc nextprogpg		; calculate how many remain in this area
+	cmp tmp
+	bcc @out
+	ldx nextprogpg		; save page to allocate
+	tya			; get back real # pages
+	clc
+	adc nextprogpg		; bump up the next prog pg
+	sta nextprogpg
+	rts
+@out:	fatal "out of rune space"
+.endproc
+
+;*****************************************************************************
+.proc _progrun
+; Run a user-space program. Searches CWD, then "/bin/"
+; In:	A/X - filename to run (pascal-style len-prefixed string)
+; Out:	if found: clc, X=exit code
+;	else: sec and X=$FF
+	sta @fname
+	stx @fname+1
+	lda #1		; 1=cwd, then 0=bin
+	sta @dirnum
+@dir:	lda cwdblk+1	; save CWD so we can restore it later
+	pha
+	lda cwdblk
+	pha
+	; if cwd, we're already there. Otherwise, use bin
+	ldx @dirnum
+	bne @chk
+	inx
+:	lda bindirblk,x
+	sta cwdblk,x
+	dex
+	bpl :-
+@chk:	lda @fname
+	ldx @fname+1
+	jsr _dirscan
+	sta @fndblk	; keep found block # and page ct
+	stx @fndblk+1
+	sty zarg	; page count for load
+	pla		; restore previous cwd
+	sta cwdblk
+	pla
+	sta cwdblk+1
+	bcc @found
+	dec @dirnum
+	bpl @dir
+	sec		; error
+	ldx #$FF
+	rts
+@found:	; allocate
+	lda nextprogpg	; save allocation point
+	pha
+	tya
+	pha		; save # pages for later relocator call
+	jsr _progalloc	; allocate memory for the program (Y pages)
+	; read
+	stx @pjmp+2	; vector for calling the program later
+	txa		; resulting page #
+	tay		; to Y for load
+	lda @fndblk
+	ldx @fndblk+1
+	jsr _readblks	; read in the program
+	; relocate
+	pla		; get page ct back
+	tay
+	lda #$10	; programs always org at $1000
+	ldx @pjmp+2
+	jsr reloc	; perform relocation
+	; run
+	jsr @pjmp	; run the program
+	; free
+	pla
+	sta nextprogpg
+	; done (exit code still in X)
+	clc
+	rts
+@pjmp:	jmp $1100	 ; self-mod above
+; vars
+	bit $1111
+@fname	= *-2
+
+	bit $11
+@dirnum	= *-1
+
+	bit $1111
+@fndblk	= *-2
 .endproc
 
 ;*****************************************************************************
@@ -777,11 +919,17 @@ nextrunepg:	.byte 0
 limitrunepg:	.byte 0
 lastrunepg:	.byte 0
 
+; program allocation global vars
+nextprogpg:	.byte 0
+limitprogpg:	.byte 0
+lastprogpg:	.byte 0
+
 ; directory global vars
 hddunit:	.byte 0
 cwdblk:		.word 0
 curdirblk:	.word 0
 runesdirblk:	.word 0
+bindirblk:	.word 0
 
 runefn:		.byte 2, "00" ; length + 2 digits
 
@@ -792,6 +940,10 @@ rune0vecs:	; rune 0 = kernel services
 	jmp _fatal
 	jmp _readblks
 	jmp _dirscan
+	jmp _progmark
+	jmp _progalloc
+	jmp _progreset
+	jmp _progrun
 	.align 32,$EA	; rune vecs always total 32 bytes
 rune1vecs:	; rune 1 = text services
 	jmp _clrscr

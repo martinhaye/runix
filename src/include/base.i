@@ -49,3 +49,8 @@ prbyte		= $C2C
 	fatal str
 :
 .endmacro
+
+.macro qfatal
+	brk
+	.byte 0
+.endmacro
