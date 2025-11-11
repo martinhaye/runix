@@ -565,6 +565,12 @@ _gotoxy:
 .endproc
 
 ;*****************************************************************************
+_getxy:
+	ldx cursx
+	ldy cursy
+	rts
+
+;*****************************************************************************
 .proc _clreol
 ; Clear current line from curx to end
 ; Doesn't modify cursx
@@ -683,6 +689,26 @@ _crout:	stx xsav
 @letr:	clc
 	adc #'A'-$A
 	jmp cout
+.endproc
+
+;*****************************************************************************
+.proc _rdkey
+; In: 	(none)
+; Out:	A - the key pressed (in lo-bit ascii)
+	jsr @inv
+:	lda $C000
+	bpl :-
+	and #$7F
+	bit $C010
+	pha
+	jsr @inv
+	pla
+	rts
+@inv:	ldy cursx
+	lda (txtptre),y
+	eor #$80
+	sta (txtptre),y
+	rts
 .endproc
 
 ;*****************************************************************************
@@ -951,6 +977,8 @@ rune1vecs:	; rune 1 = text services
 	jmp _cout
 	jmp _crout
 	jmp _prbyte
+	jmp _rdkey
+	jmp _getxy
 	.align 32,$EA	; rune vecs always total 32 bytes
 
 ;*****************************************************************************

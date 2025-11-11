@@ -47,7 +47,7 @@ CB2INT	= $FFED
 	bcc :+
 	inc ptmp+1
 :	lda tmp
-	bne @lup	; do all codes thru $FF
+	bpl @lup	; do all codes thru $7F
 	rts
 .endproc
 
