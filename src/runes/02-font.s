@@ -17,12 +17,9 @@ CB2INT	= $FFED
 
 ;*****************************************************************************
 .proc load_default_font
-	; show the character set for now, so we can verify proper operation
-	jsr showallchars
 	bit basefont
 	ldx *-1		; relocation-friendly way of getting base font page
-	jsr backfill
-	jmp *		; hang forever
+	jmp backfill
 .endproc
 
 ;*****************************************************************************
@@ -32,12 +29,10 @@ CB2INT	= $FFED
 
 ; Fonts start at code $20, so we need to skip forward $40 codes x 8 bytes,
 ; or 512 bytes, or 2 pages.
-	inx
-	inx
 	stx ptmp+1
 	lda #0
 	sta ptmp
-	lda #$60	; start with code $60
+	lda #$20	; start with code $60
 	sta tmp
 @lup:	jsr send8
 	lda ptmp
@@ -235,22 +230,22 @@ CB2INT	= $FFED
 .endproc
 
 ;*****************************************************************************
-.proc showallchars
-	jsr clrscr
-	lda #0
-	sta tmp
-@row:	ldy #0
-@rlup:	lda tmp
-	sta (txtptre),y
-	inc tmp
-	iny
-	cpy #16
-	bne @rlup
-	jsr crout
-	lda tmp
-	bne @row
-	rts
-.endproc
+;.proc showallchars
+;	jsr clrscr
+;	lda #0
+;	sta tmp
+;@row:	ldy #0
+;@rlup:	lda tmp
+;	sta (txtptre),y
+;	inc tmp
+;	iny
+;	cpy #16
+;	bne @rlup
+;	jsr crout
+;	lda tmp
+;	bne @row
+;	rts
+;.endproc
 
 	.align 256
 basefont:

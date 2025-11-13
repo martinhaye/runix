@@ -13,10 +13,10 @@ txtptro	= $F4
 
 ;*****************************************************************************
 ; Rune 0 (kernel) vectors
-resetrunes	= $C00
-kfatal		= $C03
-rdblks		= $C06
-dirscan		= $C09
+resetrunes	= $C00+(0*3)
+kfatal		= $C00+(1*3)
+rdblks		= $C00+(2*3)
+dirscan		= $C00+(3*3)
 ;*****************************************************************************
 ; Rune 1 (text) vectors
 clrscr		= $C20+(0*3)

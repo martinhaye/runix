@@ -30,6 +30,11 @@ SHELL_SRC = src/shell/shell.s
 BIN_SRC = $(wildcard src/bin/*.s)
 DEMO_SRC = $(wildcard src/demos/*.s)
 
+# Font generation
+FONT_TXT = src/runes/base_font.txt
+FONT_ASM = src/runes/base_font.s
+FONT_SCRIPT = src/runes/font_to_asm.py
+
 # Binary outputs (final targets)
 BOOT_BIN = $(BUILD)/boot.bin
 KERNEL_BIN = $(BUILD)/kernel.bin
@@ -49,6 +54,10 @@ all: deploy
 dirs:
 	@mkdir -p $(BUILD)/runes $(BUILD)/bin $(BUILD)/demos
 
+# Font generation rule
+$(FONT_ASM): $(FONT_TXT) $(FONT_SCRIPT)
+	$(PYTHON) $(FONT_SCRIPT)
+
 # Assembly rules: .s -> .o
 $(BUILD)/boot.o: $(BOOT_SRC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
@@ -57,6 +66,10 @@ $(BUILD)/kernel.o: $(KERNEL_SRC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
 $(BUILD)/shell.o: $(SHELL_SRC) | dirs
+	$(CA65) $(CA65FLAGS) -o $@ $<
+
+# Rune 02 depends on generated font
+$(BUILD)/runes/02-font.o: src/runes/02-font.s $(FONT_ASM) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
 $(BUILD)/runes/%.o: src/runes/%.s | dirs

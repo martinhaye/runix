@@ -18,6 +18,8 @@
 @lup:	jsr rdkey
 	cmp #8
 	beq @bksp
+	cmp #$5C
+	beq @bksp
 	cmp #13
 	beq @cr
 	cmp #32
@@ -27,7 +29,11 @@
 	beq @lup	; don't go beyond right edge, for now
 	ldx bufpos
 	sta inbuf+1,x	; store the char (skip 1st byte - len)
+	inc bufpos
 	jsr cout	; display the new char
+	jsr getxy
+	jsr prbyte
+	jsr gotoxy
 	jmp @lup
 @bksp:	lda bufpos
 	beq @lup	; ignore if already at start of buf
@@ -35,12 +41,23 @@
 	jsr getxy
 	dex		; back up one space
 	jsr gotoxy
+	jsr getxy
 	lda #' '
 	jsr cout	; overwrite the previous char
 	jsr gotoxy	; and back up again
 	jmp @lup	; and go get more
 @cr:	lda bufpos
 	sta inbuf
+
+	jsr crout
+	ldx #0
+:	lda inbuf+1,x
+	jsr cout
+	inx
+	cpx inbuf
+	bne :-
+	jmp crout
+
 	rts
 .endproc
 
