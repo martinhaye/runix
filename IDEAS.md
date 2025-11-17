@@ -65,6 +65,10 @@ Let's keep it super simple.
   - file name in lo-bit ascii
   - 2-byte start block of file
   - 1-byte length of file in pages - special $F8 if directory
+  - **Important:** entries may not span block boundaries; if an entry won't fit
+    in the remaining space of a block, fill with zeros and start entry on next block
+  - The last byte of each directory block must always be zero (no entry extends to
+    the very last byte of a block)
 
 ### Boot process
 

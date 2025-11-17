@@ -63,6 +63,8 @@
 3. 2 bytes: start block (little-endian)
 4. 1 byte: length in pages (256-byte pages), or `$F8` for directory
 
+**Important:** Directory entries may not span block boundaries. If an entry won't fit in the remaining space of a block (or would extend to the very last byte), the rest of the block is filled with zeros and the entry starts on the next block. The last byte of each directory block must always be zero.
+
 **Naming Conventions:**
 
 - Unix-style lowercase filenames

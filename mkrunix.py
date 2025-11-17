@@ -36,6 +36,9 @@ def create_dir_entry(name, start_block, length_pages):
     """
     Create a directory entry.
     Format: 1-byte name length, name bytes (ASCII), 2-byte start block, 1-byte length in pages
+
+    Note: Entries may not span block boundaries. Caller must ensure entries fit within
+    a single block or pad with zeros and start the entry on the next block.
     """
     entry = bytearray()
     # Convert name to ASCII
@@ -59,6 +62,31 @@ def write_file_to_image(image, start_block, data):
     offset = start_block * BLOCK_SIZE
     image[offset:offset + len(data)] = data
     return start_block + blocks_needed(data)
+
+def write_directory_entries(entries):
+    """
+    Write directory entries to a bytearray, ensuring no entry spans block boundaries.
+    Returns a bytearray of BLOCKS_PER_DIR * BLOCK_SIZE bytes with entries properly placed.
+
+    Important: The last byte of each block must always be zero (no entry extends to the
+    very last byte of a block).
+    """
+    dir_data = bytearray(BLOCKS_PER_DIR * BLOCK_SIZE)
+    offset = 2  # Skip first 2 bytes (reserved for parent/next-free pointer)
+
+    for entry in entries:
+        entry_len = len(entry)
+        # Check if entry would span a block boundary or reach the last byte
+        current_block_offset = offset % BLOCK_SIZE
+        remaining_in_block = BLOCK_SIZE - current_block_offset
+        # Entry must not extend to the last byte of the block (need at least 1 zero byte)
+        if entry_len >= remaining_in_block:
+            # Pad rest of block with zeros and start entry on next block
+            offset = ((offset // BLOCK_SIZE) + 1) * BLOCK_SIZE
+        dir_data[offset:offset + entry_len] = entry
+        offset += entry_len
+
+    return dir_data
 
 def build_filesystem(build_dir, output_path):
     """Build the complete Runix filesystem."""
@@ -150,48 +178,28 @@ def build_filesystem(build_dir, output_path):
             demos_entries.append(create_dir_entry(demo_name, demo_block, pages_needed(demo_data)))
 
     # 7. Write root directory (blocks 1-4)
-    root_dir = bytearray(BLOCKS_PER_DIR * BLOCK_SIZE)
+    root_dir = write_directory_entries(root_entries)
     # First 2 bytes: next free block pointer
     root_dir[0:2] = struct.pack('<H', next_free_block)
-    # Then the entries
-    offset = 2
-    for entry in root_entries:
-        root_dir[offset:offset + len(entry)] = entry
-        offset += len(entry)
-    write_block(image, ROOT_DIR_BLOCK, root_dir[:BLOCKS_PER_DIR * BLOCK_SIZE])
+    write_block(image, ROOT_DIR_BLOCK, root_dir)
 
     # 8. Write runes subdirectory
-    runes_dir_data = bytearray(BLOCKS_PER_DIR * BLOCK_SIZE)
+    runes_dir_data = write_directory_entries(runes_entries)
     # First 2 bytes: parent directory block (points to root)
     runes_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
-    # Then the entries
-    offset = 2
-    for entry in runes_entries:
-        runes_dir_data[offset:offset + len(entry)] = entry
-        offset += len(entry)
-    write_block(image, runes_dir_block, runes_dir_data[:BLOCKS_PER_DIR * BLOCK_SIZE])
+    write_block(image, runes_dir_block, runes_dir_data)
 
     # 9. Write bin subdirectory
-    bin_dir_data = bytearray(BLOCKS_PER_DIR * BLOCK_SIZE)
+    bin_dir_data = write_directory_entries(bin_entries)
     # First 2 bytes: parent directory block (points to root)
     bin_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
-    # Then the entries
-    offset = 2
-    for entry in bin_entries:
-        bin_dir_data[offset:offset + len(entry)] = entry
-        offset += len(entry)
-    write_block(image, bin_dir_block, bin_dir_data[:BLOCKS_PER_DIR * BLOCK_SIZE])
+    write_block(image, bin_dir_block, bin_dir_data)
 
     # 10. Write demos subdirectory
-    demos_dir_data = bytearray(BLOCKS_PER_DIR * BLOCK_SIZE)
+    demos_dir_data = write_directory_entries(demos_entries)
     # First 2 bytes: parent directory block (points to root)
     demos_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
-    # Then the entries
-    offset = 2
-    for entry in demos_entries:
-        demos_dir_data[offset:offset + len(entry)] = entry
-        offset += len(entry)
-    write_block(image, demos_dir_block, demos_dir_data[:BLOCKS_PER_DIR * BLOCK_SIZE])
+    write_block(image, demos_dir_block, demos_dir_data)
 
     # 11. Create .2mg header and write image
     write_2mg(image, output_path)
