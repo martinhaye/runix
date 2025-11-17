@@ -50,19 +50,21 @@ NDIRBLKS = 4
 	jsr _clrscr
 	print "Welcome to Runix 0.1\n"
 	jsr _resetrunes
-	; set cwd = root dir (block 1)
+	; root dir is always blk 1
 	ldx #1
-	stx cwdblk
+	stx rootdirblk
 	dex
-	stx cwdblk+1
+	stx rootdirblk+1
 	; find the "runes" subdir
 	ldstr "runes"
+	ldy #DIRSCAN_ROOT
 	jsr _dirscan
 	bcc_or_die "no runes dir"
 	sta runesdirblk
 	stx runesdirblk+1
 	; Also find the "bin" subdir
 	ldstr "bin"
+	ldy #DIRSCAN_ROOT
 	jsr _dirscan
 	bcc_or_die "no bin dir"
 	sta bindirblk
@@ -150,17 +152,10 @@ NDIRBLKS = 4
 	and #$F		; rune number now in A
 	ora #'0'	; form filename prefix
 	sta runefn+2
-	; switch to rune subdir
-	ldx #1
-:	lda cwdblk,x
-	pha
-	lda runesdirblk,x
-	sta cwdblk,x
-	dex
-	bpl :-
 	; search for the rune with wildcard
 	lda #<runefn
 	ldx #>runefn
+	ldy #DIRSCAN_RUNES
 	jsr wildscan
 	bcc_or_die "missing rune"
 	pha		; save blk num on stk
@@ -189,11 +184,6 @@ NDIRBLKS = 4
 @rvec:	sta $C00,x	; self-modified earlier
 	dex
 	bpl @cpvec
-	; restore orig cwd
-	pla
-	sta cwdblk
-	pla
-	sta cwdblk+1
 	; finally, execute the original rune call
 	lda asav
 	ldx xsav
@@ -294,33 +284,21 @@ NDIRBLKS = 4
 ;	else: sec and X=$FF
 	sta @fname
 	stx @fname+1
-	lda #1		; 1=cwd, then 0=bin
-	sta @dirnum
-@dir:	lda cwdblk+1	; save CWD so we can restore it later
-	pha
-	lda cwdblk
-	pha
-	; if cwd, we're already there. Otherwise, use bin
-	ldx @dirnum
-	bne @chk
-	inx
-:	lda bindirblk,x
-	sta cwdblk,x
-	dex
-	bpl :-
+	lda #DIRSCAN_BIN	; start with bin, then down to cwd
+@dir:	sta @dirnum
 @chk:	lda @fname
 	ldx @fname+1
+	ldy @dirnum
 	jsr _dirscan
 	sta @fndblk	; keep found block # and page ct
 	stx @fndblk+1
 	sty zarg	; page count for load
-	pla		; restore previous cwd
-	sta cwdblk
-	pla
-	sta cwdblk+1
 	bcc @found
-	dec @dirnum
-	bpl @dir
+	lda @dirnum
+	sec
+	sbc #DIRSCAN_BIN-DIRSCAN_CWD
+	cmp #DIRSCAN_CWD
+	beq @dir
 	sec		; error
 	ldx #$FF
 	rts
@@ -442,27 +420,34 @@ callhdd: jmp $CF0A	; self-modified by startup
 ; Scan directory for a file - optional wildcard at end
 ; In:
 ; 	A/X - pascal-style (len-prefixed) filename to scan for
+;	Y - dir to scan:
+;		DIRSCAN_ROOT  = 0 = root
+;		DIRSCAN_CWD   = 2 = cwd
+;		DIRSCAN_RUNES = 4 = runes
+;		DIRSCAN_BIN   = 6 = bin
 ; Out:
 ;	clc on success, sec if not found
 ;	A/X - blk num
 ;	Y - length in pages
 wildscan:
-	ldy #$80
-	bne *+4		; skip ldy below
+	sec
+	bcs *+3		; skip clc below
 .proc _dirscan
-	ldy #0
+	clc
 @fname	= ptmp		; len 2
 @pscan	= ptmp2		; len 2
 @wflg	= tmp		; len 1
 @nblks	= tmp+1		; len 1
 @nmlen	= tmp2		; len 1
 @blknum	= tmp3		; len 2
-@setw:	sty @wflg
-	sta @fname
+@setw:	sta @fname
 	stx @fname+1
-	lda cwdblk	; cwd = current directory
+	lda #0
+	ror		; carry -> bit $80
+	sta @wflg
+	lda rootdirblk,y ; directories are together
 	sta @blknum
-	lda cwdblk+1
+	lda rootdirblk+1,y
 	sta @blknum+1
 	lda #NDIRBLKS	; always 4
 	sta @nblks
@@ -950,10 +935,13 @@ nextprogpg:	.byte 0
 limitprogpg:	.byte 0
 lastprogpg:	.byte 0
 
-; directory global vars
+; disk-related vars
 hddunit:	.byte 0
-cwdblk:		.word 0
 curdirblk:	.word 0
+
+; various directories (keep these together in order)
+rootdirblk:	.word 0
+cwdblk:		.word 0
 runesdirblk:	.word 0
 bindirblk:	.word 0
 
