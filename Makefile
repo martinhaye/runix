@@ -48,7 +48,7 @@ IMAGE = $(BUILD)/runix.2mg
 
 .PHONY: all clean dirs deploy
 
-all: deploy
+all: $(IMAGE)
 
 # Create build directories
 dirs:

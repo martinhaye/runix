@@ -69,7 +69,7 @@ NDIRBLKS = 4
 	bcc_or_die "no bin dir"
 	sta bindirblk
 	stx bindirblk+1
-	; On the Apple III, we need to back-fill lowercase chars
+	; On the Apple III, we need to back-fill lowercase font
 	bit a3flg
 	bpl :+
 	jsr $C40	; rune 2, vector 0: this will shock-load rune 2
@@ -656,13 +656,28 @@ _crout:	stx xsav
 .proc _rdkey
 ; In: 	(none)
 ; Out:	A - the key pressed (in lo-bit ascii)
-	jsr @inv
+	jsr @inv	; display cursor
 :	lda $C000
 	bpl :-
 	and #$7F
-	bit $C010
+	bit a3flg
+	bpl @got
+	; On Apple ///, convert to lower-case unless shift
+	cmp #'A'
+	bcc @got
+	cmp #'Z'+1
+	bcs @got
 	pha
-	jsr @inv
+	lda $C008
+	lsr
+	lsr		; get bit 2 = shift key
+	pla
+	bcs @got	; if shifted, leave char as-is
+	clc
+	adc #'a'-'A'	; if not shifted, convert to lower-case
+@got:	bit $C010	; clear keyboard strobe
+	pha
+	jsr @inv	; erase cursor
 	pla
 	rts
 @inv:	ldy cursx
