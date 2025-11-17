@@ -1,6 +1,9 @@
 ; Hello world demo
-; Loads at $6000 (bank 2)
 
-        .org $2000
+.include "base.i"
 
+; all programs org at $1000 but are transparently relocated at load time
+        .org $1000
+
+	print	"Hello.\n"
         rts

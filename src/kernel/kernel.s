@@ -75,7 +75,7 @@ NDIRBLKS = 4
 	jsr $C40	; rune 2, vector 0: this will shock-load rune 2
 :	; Now run the shell
 	ldx #$20	; start allocating program space at $2000
-	jsr _progreset
+	stx nextprogpg
 	ldstr "shell"
 	jsr _progrun
 	qfatal
@@ -226,30 +226,6 @@ NDIRBLKS = 4
 .endproc
 
 ;*****************************************************************************
-; Get the program space mark (useful for later reset)
-; Out:	X - page number that would next be allocated
-.proc _progmark
-	ldx nextprogpg
-	rts
-.endproc
-
-;*****************************************************************************
-; Reset the program space mark (throws away allocations from that point on),
-; usually with the prior result of progmark
-; In:	X - page number to allocate next
-.proc _progreset
-	stx nextprogpg
-	cpx #$20
-	bcc @bad
-	cpx #$A0
-	bcs @bad
-	ldx #$A0
-	sta limitprogpg
-	rts
-@bad:	qfatal	; don't waste space on a fancy message - this shouldn't happen
-.endproc
-
-;*****************************************************************************
 ; Allocate program space
 ; In:	Y - # pages
 ; Out:	X - page number allocated
@@ -325,7 +301,7 @@ NDIRBLKS = 4
 	jsr @pjmp	; run the program
 	; free
 	pla
-	sta nextprogpg
+	sta nextprogpg	; pop the allocation mark (frees prog mem)
 	; done (exit code still in X)
 	clc
 	rts
@@ -954,9 +930,7 @@ rune0vecs:	; rune 0 = kernel services
 	jmp _fatal
 	jmp _readblks
 	jmp _dirscan
-	jmp _progmark
 	jmp _progalloc
-	jmp _progreset
 	jmp _progrun
 	.align 32,$EA	; rune vecs always total 32 bytes
 rune1vecs:	; rune 1 = text services

@@ -5,13 +5,34 @@
 
 .include "base.i"
 ;*****************************************************************************
-	jsr rdlin
-	jmp *
+.proc main
+	; input a command line
+@repl:	jsr rdlin
+	; zero-terminate the command line also, for later processing
+	ldy inbuf
+	lda #0
+	sta inbuf+1,y
+	; find space between program name and args
+	ldy #0
+@cksp:	lda inbuf+1,y
+	cmp #' '
+	beq @fnden
+	iny
+	cpy inbuf
+	bne @cksp
+@fnden:	sty inbuf	; truncate to just prog name
+	ldx *-1		; cute way to get hi byte of inbuf ptr
+	lda #0
+	jsr progrun
+	bcc @repl
+	print "Error: command not found.\n"
+	jmp @repl
+.endproc
 
 ;*****************************************************************************
 .proc rdlin
 	lda #0
-	sta bufpos
+	sta inbuf	; buffer position/len at start of buf
 @prpt:	ldx #0
 :	lda prompt+1,x
 	jsr cout
@@ -30,17 +51,14 @@
 	jsr getxy
 	cpx #39
 	beq @lup	; don't go beyond right edge, for now
-	ldx bufpos
+	ldx inbuf
 	sta inbuf+1,x	; store the char (skip 1st byte - len)
-	inc bufpos
+	inc inbuf
 	jsr cout	; display the new char
-	jsr getxy
-	jsr prbyte
-	jsr gotoxy
 	jmp @lup
-@bksp:	lda bufpos
+@bksp:	lda inbuf
 	beq @lup	; ignore if already at start of buf
-	dec bufpos
+	dec inbuf
 	jsr getxy
 	dex		; back up one space
 	jsr gotoxy
@@ -49,19 +67,7 @@
 	jsr cout	; overwrite the previous char
 	jsr gotoxy	; and back up again
 	jmp @lup	; and go get more
-@cr:	lda bufpos
-	sta inbuf
-
-	jsr crout
-	ldx #0
-:	lda inbuf+1,x
-	jsr cout
-	inx
-	cpx inbuf
-	bne :-
-	jmp crout
-
-	rts
+@cr:	jmp crout
 .endproc
 
 ;*****************************************************************************
@@ -69,7 +75,6 @@ data:
 	.res 3,0	; stops relocator here
 
 prompt:	.byt 2, "# "
-bufpos:	.byt 0
 
 	.align 256
 inbuf:	.res 256

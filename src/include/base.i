@@ -21,6 +21,8 @@ dirscan		= $C00+(3*3)
   DIRSCAN_CWD	= 2
   DIRSCAN_RUNES	= 4
   DIRSCAN_BIN	= 6
+progalloc	= $C00+(4*3)
+progrun		= $C00+(5*3)
 ;*****************************************************************************
 ; Rune 1 (text) vectors
 clrscr		= $C20+(0*3)
