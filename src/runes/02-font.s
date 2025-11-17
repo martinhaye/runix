@@ -26,13 +26,12 @@ CB2INT	= $FFED
 .proc backfill
 ; Backfills just the lower case character codes ($60-$7F) from a full font.
 ; in:	X - first page of font
-
-; Fonts start at code $20, so we need to skip forward $40 codes x 8 bytes,
-; or 512 bytes, or 2 pages.
+	inx		; Fonts start at code $20, so we need to skip forward $40 codes x 8 bytes,
+	inx		; or 512 bytes, i.e. 2 pages.
 	stx ptmp+1
 	lda #0
 	sta ptmp
-	lda #$20	; start with code $60
+	lda #$60	; start with code $60
 	sta tmp
 @lup:	jsr send8
 	lda ptmp
