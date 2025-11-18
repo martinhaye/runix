@@ -58,27 +58,30 @@ dirs:
 $(FONT_ASM): $(FONT_TXT) $(FONT_SCRIPT)
 	$(PYTHON) $(FONT_SCRIPT)
 
+# Common dependencies
+BASE_INC = src/include/base.i
+
 # Assembly rules: .s -> .o
-$(BUILD)/boot.o: $(BOOT_SRC) | dirs
+$(BUILD)/boot.o: $(BOOT_SRC) $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
-$(BUILD)/kernel.o: $(KERNEL_SRC) | dirs
+$(BUILD)/kernel.o: $(KERNEL_SRC) $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
-$(BUILD)/shell.o: $(SHELL_SRC) | dirs
+$(BUILD)/shell.o: $(SHELL_SRC) $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
 # Rune 02 depends on generated font
-$(BUILD)/runes/02-font.o: src/runes/02-font.s $(FONT_ASM) | dirs
+$(BUILD)/runes/02-font.o: src/runes/02-font.s $(FONT_ASM) $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
-$(BUILD)/runes/%.o: src/runes/%.s | dirs
+$(BUILD)/runes/%.o: src/runes/%.s $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
-$(BUILD)/bin/%.o: src/bin/%.s | dirs
+$(BUILD)/bin/%.o: src/bin/%.s $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
-$(BUILD)/demos/%.o: src/demos/%.s | dirs
+$(BUILD)/demos/%.o: src/demos/%.s $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
 # Linking rule: .o -> .bin (works for all paths)
