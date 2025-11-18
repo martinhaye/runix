@@ -393,6 +393,62 @@ callhdd: jmp $CF0A	; self-modified by startup
 .endproc
 
 ;*****************************************************************************
+; Get first or next entry in a directory
+; In:	clc:get first entry
+;	    Y - dir to scan:
+;		DIRSCAN_ROOT  = 0 = root
+;		DIRSCAN_CWD   = 2 = cwd
+;		DIRSCAN_RUNES = 4 = runes
+;		DIRSCAN_BIN   = 6 = bin
+;	sec:get next entry (Y ignored)
+; Out:
+;	clc on success, A/X - dir entry ptr, Y - name length
+;	sec if no more entries
+.proc _getdirent
+	bcs adv
+first:	lda #4
+	sta dirent_nblks
+	lda rootdirblk+1,y
+	tax
+	lda rootdirblk,y
+rblk:	sta dirent_blknum
+	stx dirent_blknum+1
+	jsr readdirblk
+	lda #2		; skip initial word (next free blk, or parent dir blk)
+	ldy dirent_nblks
+	cpy #4
+	beq :+
+	lda #0		; second and subsequent blocks start at offset zero
+:	ldx #>dirbuf
+ckent:	sta dirent_pscan
+	stx dirent_pscan+1
+	jsr getlen
+	beq nxblk
+	rts		; found a valid entry - c already clr, A/X already has ptr
+nxblk:	lda dirent_blknum
+	ldx dirent_blknum+1
+	adc #1		; carry already clear from getlen
+	bcc :+
+	inx
+:	dec dirent_nblks
+	bne rblk
+	sec		; out of blks
+	rts
+adv:	jsr getlen
+	ldx dirent_pscan+1
+	tya
+	adc #4		; skip len, blk num, npages (carry already clr from getlen)
+	adc dirent_pscan
+	bcc ckent
+	inx
+	bne ckent	; always taken
+dirent_pscan = *+1
+getlen:	ldy $1111
+	clc
+	rts
+.endproc
+
+;*****************************************************************************
 ; Scan directory for a file - optional wildcard at end
 ; In:
 ; 	A/X - pascal-style (len-prefixed) filename to scan for
@@ -410,79 +466,52 @@ wildscan:
 	bcs *+3		; skip clc below
 .proc _dirscan
 	clc
-@fname	= ptmp		; len 2
-@pscan	= ptmp2		; len 2
-@wflg	= tmp		; len 1
-@nblks	= tmp+1		; len 1
-@nmlen	= tmp2		; len 1
-@blknum	= tmp3		; len 2
-@setw:	sta @fname
-	stx @fname+1
+fname	= ptmp		; len 2
+pscan	= ptmp2		; len 2
+wflg	= tmp		; len 1
+nmlen	= tmp2		; len 1
+	sta fname
+	stx fname+1
 	lda #0
-	ror		; carry -> bit $80
-	sta @wflg
-	lda rootdirblk,y ; directories are together
-	sta @blknum
-	lda rootdirblk+1,y
-	sta @blknum+1
-	lda #NDIRBLKS	; always 4
-	sta @nblks
-	lda #2
-@nxtbk:	sta @pscan	; skip over dir block header (2 bytes first, 0 bytes subsq)
-	ldy #>dirbuf
-	sty @pscan+1
-	dec @nblks
-	bmi @nofnd	; limit 4 blks per dir
-	lda @blknum
-	ldx @blknum+1
-	jsr readdirblk	; go read the blk (might be cached already)
-	inc @blknum	; advance for next time
-	bne @ckent
-	inc @blknum+1
-@ckent:	ldy #0
-	lda (@pscan),y	; get entry's name len
-	beq @nxtbk	; out of entries, read next dir blk
-			; (and set @pscan to buf start since next blk doesn't have free-num)
-	sta @nmlen	; save it for later
+	ror		; carry -> bit $80; clears carry as well
+	sta wflg
+nxtent:	jsr getdirent	; carry is clr first time, set subsequent times
+	bcc ckent
+	rts		; out of entries - error return
+ckent:	sta pscan
+	stx pscan+1
+	sty nmlen	; save length for later
+	tya
 	tax		; count for non-wild name chk
-	cmp (@fname),y
-	beq @cknam	; if same len, do normal chk
-	bcc @skip	; if entry name shorter than target name, skip.
-	bit @wflg	; ent name is longer than target...
-	bpl @skip	; ...so if no wild allowed, skip this ent
-	lda (@fname),y	; len of *target* name
+	ldy #0
+	cmp (fname),y
+	beq cknam	; if same len, do normal chk
+	bcc skip	; if entry name shorter than target name, skip.
+	bit wflg	; ent name is longer than target...
+	bpl skip	; ...so if no wild allowed, skip this ent
+	lda (fname),y	; len of *target* name
 	tax		; ...is count for name chk
-@cknam:	iny
-	lda (@pscan),y
-	cmp (@fname),y
-	bne @skip
+cknam:	iny
+	lda (pscan),y
+	cmp (fname),y
+	bne skip
 	dex
-	bne @cknam
-@match:	ldy @nmlen	; length of name...
-	iny		; 	+1 gets us to @blknum
-	lda (@pscan),y	; blk num lo
+	bne cknam
+match:	ldy nmlen	; length of name...
+	iny		; 	+1 gets us to blknum
+	lda (pscan),y	; blk num lo
 	pha
 	iny
-	lda (@pscan),y	; blk num hi
+	lda (pscan),y	; blk num hi
 	tax
 	iny	
-	lda (@pscan),y	; length in pages
+	lda (pscan),y	; length in pages
 	tay
 	pla		; get blk num lo back
 	clc		; signal success
 	rts
-@skip:	lda @nmlen
-	clc
-	adc #4		; adjust past len byte itself, plus @blknum and filelen
-	adc @pscan
-	sta @pscan
-	bcc @ckent
-	lda @pscan+1
-	inc @pscan+1
-	cmp #>dirbuf	; were we still on first pg of blk?
-	beq @ckent	; if so, keep checking
-@nofnd:	sec		; not found, error out
-	rts
+skip:	sec		; sec = get next entry
+	jmp nxtent
 .endproc
 
 ;*****************************************************************************
@@ -936,6 +965,10 @@ cwdblk:		.word 0
 runesdirblk:	.word 0
 bindirblk:	.word 0
 
+; State for getdirent
+dirent_blknum:	.word 0
+dirent_nblks:	.byte 0
+
 runefn:		.byte 2, "00" ; length + 2 digits
 
 ;*****************************************************************************
@@ -944,6 +977,7 @@ rune0vecs:	; rune 0 = kernel services
 	jmp _resetrunes
 	jmp _fatal
 	jmp _readblks
+	jmp _getdirent
 	jmp _dirscan
 	jmp _progalloc
 	jmp _progrun
