@@ -18,3 +18,7 @@ __pycache__/
 *.o
 *.lst
 *.map
+
+# Simulator build artifacts
+simulator/*.bin
+simulator/*.o
