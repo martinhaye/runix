@@ -1,0 +1,3 @@
+[submodule "simulator/cc65"]
+	path = simulator/cc65
+	url = https://github.com/martinhaye/cc65_runixmod.git
