@@ -23,4 +23,3 @@ __pycache__/
 simulator/*.bin
 simulator/*.o
 simulator/*.2mg
-simulator/*.patch
