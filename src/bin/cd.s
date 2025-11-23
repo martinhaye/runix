@@ -5,7 +5,23 @@
         .org $1000	; relocated at load time
 
 .proc chdir
-	; A/X is already pointing to the arg - scan for it
+	; check for ".."
+	sta ptmp
+	stx ptmp+1
+	ldy #0
+	lda (ptmp),y
+	cmp #2
+	bne ndots
+	ldx #2
+	iny
+	lda (ptmp),y
+	cmp #'.'
+	bne ndots
+	iny
+	lda (ptmp),y
+	cmp #'.'
+	beq dotdot
+ndots:	lda ptmp
 	ldy #DIRSCAN_CWD
 	clc
 	jsr dirscan
@@ -18,4 +34,24 @@ found:	cpy #$F8
 	rts
 isdir:	sec
 	jmp getsetcwd	; change working dir
+dotdot:	clc
+	jsr getsetcwd
+	cmp #1
+	bne noroot
+	cpx #0
+	beq isroot
+noroot:	ldy #1
+	sty zarg	; read 1 blk (the dir)
+	bit blkbuf
+	ldy *-1
+	jsr rdblks
+	lda blkbuf	; parent blk num
+	ldx blkbuf+1
+	sec
+	jmp getsetcwd
+isroot:	print "Error: already at /\n"
+	rts
 .endproc
+
+	.align 256
+blkbuf:	.res 512

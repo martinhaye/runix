@@ -16,6 +16,7 @@ loop:	jsr printone
 	pla		; back to original cwd
 	tax
 	pla
+	sec
 	jmp getsetcwd
 .endproc
 
