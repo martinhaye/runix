@@ -251,11 +251,16 @@ NDIRBLKS = 4
 .proc _progrun
 ; Run a user-space program. Searches CWD, then "/bin/"
 ; In:	A/X - filename to run (pascal-style len-prefixed string)
+;	zarg - will get passed to program in A/X
 ; Out:	if found: clc, X=exit code
 ;	else: sec and X=$FF
 	sta @fname
 	stx @fname+1
-	lda #DIRSCAN_BIN	; start with bin, then down to cwd
+	lda zarg	; save argument for later
+	sta @arg
+	lda zarg+1
+	sta @arg+1
+	lda #DIRSCAN_BIN ; start with bin, then down to cwd
 @dir:	sta @dirnum
 @chk:	lda @fname
 	ldx @fname+1
@@ -293,6 +298,8 @@ NDIRBLKS = 4
 	ldx @pjmp+2
 	jsr reloc	; perform relocation
 	; run
+	lda @arg	; arg saved from earlier
+	ldx @arg+1
 	jsr @pjmp	; run the program
 	; free
 	pla
@@ -310,6 +317,9 @@ NDIRBLKS = 4
 
 	bit $1111
 @fndblk	= *-2
+
+	bit $1111
+@arg	= *-2
 .endproc
 
 ;*****************************************************************************
@@ -507,6 +517,18 @@ match:	ldy nmlen	; length of name...
 	rts
 skip:	sec		; sec = get next entry
 	jmp nxtent
+.endproc
+
+;*****************************************************************************
+.proc _getsetcwd
+; clc = get -> A/X; sec = set from A/X
+	bcs set
+get:	lda cwdblk
+	ldx cwdblk+1
+	rts
+set:	sta cwdblk
+	stx cwdblk+1
+	rts
 .endproc
 
 ;*****************************************************************************
@@ -976,6 +998,7 @@ rune0vecs:	; rune 0 = kernel services
 	jmp _dirscan
 	jmp _progalloc
 	jmp _progrun
+	jmp _getsetcwd
 	.align 32,$EA	; rune vecs always total 32 bytes
 rune1vecs:	; rune 1 = text services
 	jmp _clrscr

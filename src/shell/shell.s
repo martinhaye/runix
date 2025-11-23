@@ -20,10 +20,17 @@
 	iny
 	cpy inbuf
 	bne @cksp
-@fnden:	sty inbuf	; truncate to just prog name
+@fnden:	lda inbuf	; get old len
+	sty inbuf	; truncate to just prog name
 	ldx *-1		; cute way to get hi byte of inbuf ptr
-	tya
+	cpy #0
 	beq @repl	; handle blank line
+	clc		; extra for space itself
+	sbc inbuf	; subtract len of program name
+	sta inbuf+1,y	; create new len/data string
+	stx zarg+1
+	iny
+	sty zarg	; point at new string
 	lda #0
 	jsr progrun
 	bcc @repl

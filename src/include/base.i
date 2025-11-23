@@ -17,13 +17,14 @@ resetrunes	= $C00+(0*3)
 kfatal		= $C00+(1*3)
 rdblks		= $C00+(2*3)
 getdirent	= $C00+(3*3)	; clc=first, Y=dir; sec=next; ret: A/X - ent, Y - name len
-dirscan		= $C00+(4*3)
+dirscan		= $C00+(4*3)	; A/X - name to scan for, Y - dir to scan
   DIRSCAN_ROOT	= 0
   DIRSCAN_CWD	= 2
   DIRSCAN_RUNES	= 4
   DIRSCAN_BIN	= 6
 progalloc	= $C00+(5*3)
 progrun		= $C00+(6*3)
+getsetcwd	= $C00+(7*3)
 ;*****************************************************************************
 ; Rune 1 (text) vectors
 clrscr		= $C20+(0*3)
