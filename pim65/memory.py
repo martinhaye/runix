@@ -1,5 +1,7 @@
 """Memory management for the 6502 simulator."""
 
+from typing import Callable, Optional
+
 
 class Memory:
     """64KB memory space for 6502 simulation."""
@@ -9,14 +11,31 @@ class Memory:
     def __init__(self):
         """Initialize memory to all $FF."""
         self._mem = bytearray([0xFF] * self.SIZE)
+        self._read_hooks: dict[int, Callable[[], int]] = {}
+        self._write_hooks: dict[int, Callable[[int], None]] = {}
+
+    def add_read_hook(self, addr: int, hook: Callable[[], int]) -> None:
+        """Add a hook for reads from a specific address."""
+        self._read_hooks[addr] = hook
+
+    def add_write_hook(self, addr: int, hook: Callable[[int], None]) -> None:
+        """Add a hook for writes to a specific address."""
+        self._write_hooks[addr] = hook
 
     def read(self, addr: int) -> int:
         """Read a byte from memory."""
-        return self._mem[addr & 0xFFFF]
+        addr = addr & 0xFFFF
+        if addr in self._read_hooks:
+            return self._read_hooks[addr]()
+        return self._mem[addr]
 
     def write(self, addr: int, value: int) -> None:
         """Write a byte to memory."""
-        self._mem[addr & 0xFFFF] = value & 0xFF
+        addr = addr & 0xFFFF
+        if addr in self._write_hooks:
+            self._write_hooks[addr](value & 0xFF)
+        else:
+            self._mem[addr] = value & 0xFF
 
     def read_word(self, addr: int) -> int:
         """Read a 16-bit word (little-endian) from memory."""

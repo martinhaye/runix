@@ -9,6 +9,11 @@ class InvalidOpcodeError(Exception):
     pass
 
 
+class BrkAbortError(Exception):
+    """Raised when BRK 00 is encountered with brk_abort enabled."""
+    pass
+
+
 class CPU:
     """6502 CPU emulator (results-accurate, not cycle-accurate)."""
 
@@ -43,6 +48,14 @@ class CPU:
         self.instruction_count = 0
         self.trace_enabled = False
         self.trace_log: list[str] = []
+
+        # Options
+        self.brk_abort = False  # Abort on BRK 00
+
+        # Hooks for Apple II hardware
+        self.read_hooks: dict[int, Callable[[], int]] = {}
+        self.write_hooks: dict[int, Callable[[int], None]] = {}
+        self.pc_hooks: dict[int, Callable[[], None]] = {}
 
         self._build_opcode_table()
 
@@ -219,6 +232,13 @@ class CPU:
 
     def op_brk(self) -> None:
         """Break - software interrupt."""
+        # Check for BRK 00 abort
+        if self.brk_abort and self.memory.read(self.pc) == 0x00:
+            raise BrkAbortError(
+                f"BRK 00 at ${(self.pc - 1) & 0xFFFF:04X}: "
+                f"A=${self.a:02X} X=${self.x:02X} Y=${self.y:02X} "
+                f"SP=${self.sp:02X} PC=${self.pc:04X}"
+            )
         self.pc = (self.pc + 1) & 0xFFFF  # BRK skips next byte
         self.push_word(self.pc)
         self.push(self.status | self.FLAG_B | self.FLAG_U)
@@ -709,6 +729,10 @@ class CPU:
         flags += "C" if self.get_flag(self.FLAG_C) else "c"
         return f"A=${self.a:02X} X=${self.x:02X} Y=${self.y:02X} SP=${self.sp:02X} [{flags}]"
 
+    def add_pc_hook(self, addr: int, hook: Callable[[], None]) -> None:
+        """Add a hook that's called when PC reaches a specific address."""
+        self.pc_hooks[addr] = hook
+
     # --- Execution ---
 
     def step(self) -> bool:
@@ -721,6 +745,12 @@ class CPU:
             self.halted = True
             self.success = True
             return False
+
+        # Check for PC hooks (e.g., hard drive interception)
+        if self.pc in self.pc_hooks:
+            self.pc_hooks[self.pc]()
+            self.instruction_count += 1
+            return True
 
         # Fetch opcode
         pc_before = self.pc
