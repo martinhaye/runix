@@ -16,7 +16,7 @@ txtptro	= $F4
 resetrunes	= $C00+(0*3)
 kfatal		= $C00+(1*3)
 rdblks		= $C00+(2*3)
-getdirent	= $C00+(3*3)
+getdirent	= $C00+(3*3)	; clc=first, Y=dir; sec=next; ret: A/X - ent, Y - name len
 dirscan		= $C00+(4*3)
   DIRSCAN_ROOT	= 0
   DIRSCAN_CWD	= 2

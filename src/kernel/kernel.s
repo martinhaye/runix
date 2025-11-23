@@ -50,11 +50,6 @@ NDIRBLKS = 4
 	jsr _clrscr
 	print "Welcome to Runix 0.1\n"
 	jsr _resetrunes
-	; root dir is always blk 1
-	ldx #1
-	stx rootdirblk
-	dex
-	stx rootdirblk+1
 	; find the "runes" subdir
 	ldstr "runes"
 	ldy #DIRSCAN_ROOT
@@ -960,8 +955,8 @@ hddunit:	.byte 0
 curdirblk:	.word 0
 
 ; various directories (keep these together in order)
-rootdirblk:	.word 0
-cwdblk:		.word 0
+rootdirblk:	.word 1
+cwdblk:		.word 1
 runesdirblk:	.word 0
 bindirblk:	.word 0
 

@@ -1,9 +1,35 @@
-; Hello world demo
+; Directory listing
 
 .include "base.i"
 
-; all programs org at $1000 but are transparently relocated at load time
-        .org $1000
+        .org $1000	; relocated at load time
 
-	print	"This is ls.\n"
-        rts
+.proc listdir
+	ldy #DIRSCAN_CWD
+	clc
+next:	jsr getdirent
+	bcs done
+prname:	sta ptmp
+	stx ptmp+1
+	tya
+	tax
+	ldy #1
+prchr:	lda (ptmp),y
+	iny
+	jsr cout
+	dex
+	bne prchr
+tab:	lda #' '
+	jsr cout
+	jsr getxy
+	txa
+	and #7
+	bne tab
+	sec
+	bcs next	; always taken
+done:	jsr getxy
+	txa		; already at start of line? skip cr
+	beq ret
+	jsr crout
+ret:	rts
+.endproc

@@ -22,6 +22,8 @@
 	bne @cksp
 @fnden:	sty inbuf	; truncate to just prog name
 	ldx *-1		; cute way to get hi byte of inbuf ptr
+	tya
+	beq @repl	; handle blank line
 	lda #0
 	jsr progrun
 	bcc @repl
