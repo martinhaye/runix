@@ -129,6 +129,10 @@ def build_filesystem(build_dir, output_path):
     next_free_block += BLOCKS_PER_DIR
     root_entries.append(create_dir_entry('demos', demos_dir_block, 0xF8))
 
+    testdata_dir_block = next_free_block
+    next_free_block += BLOCKS_PER_DIR
+    root_entries.append(create_dir_entry('testdata', testdata_dir_block, 0xF8))
+
     # 4. Build runes subdirectory entries
     runes_entries = []
     runes_dir = Path(build_dir) / 'runes'
@@ -177,19 +181,18 @@ def build_filesystem(build_dir, output_path):
             demo_name = demo_file.stem
             demos_entries.append(create_dir_entry(demo_name, demo_block, pages_needed(demo_data)))
 
-    # 6a. Add test data files to root directory
-    testdata_count = 0
-    testdata_dir = Path(build_dir) / 'testdata'
-    if testdata_dir.exists():
-        testdata_files = sorted(testdata_dir.glob('*'))
+    # 6a. Build testdata subdirectory entries
+    testdata_entries = []
+    testdata_dir_path = Path(build_dir) / 'testdata'
+    if testdata_dir_path.exists():
+        testdata_files = sorted(testdata_dir_path.glob('*'))
         for test_file in testdata_files:
             if test_file.is_file():
                 test_data = read_binary(test_file)
                 test_block = next_free_block
                 next_free_block = write_file_to_image(image, test_block, test_data)
                 test_name = test_file.name  # Keep full name including extension
-                root_entries.append(create_dir_entry(test_name, test_block, pages_needed(test_data)))
-                testdata_count += 1
+                testdata_entries.append(create_dir_entry(test_name, test_block, pages_needed(test_data)))
 
     # 7. Write root directory (blocks 1-4)
     root_dir = write_directory_entries(root_entries)
@@ -215,6 +218,12 @@ def build_filesystem(build_dir, output_path):
     demos_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
     write_block(image, demos_dir_block, demos_dir_data)
 
+    # 10a. Write testdata subdirectory
+    testdata_dir_data = write_directory_entries(testdata_entries)
+    # First 2 bytes: parent directory block (points to root)
+    testdata_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
+    write_block(image, testdata_dir_block, testdata_dir_data)
+
     # 11. Create .2mg header and write image
     write_2mg(image, output_path)
 
@@ -225,8 +234,7 @@ def build_filesystem(build_dir, output_path):
     print(f"  Rune entries: {len(runes_entries)}")
     print(f"  Bin entries: {len(bin_entries)}")
     print(f"  Demo entries: {len(demos_entries)}")
-    if testdata_count > 0:
-        print(f"  Test data files: {testdata_count}")
+    print(f"  Testdata entries: {len(testdata_entries)}")
 
 def write_2mg(payload, output_path):
     """Write a .2mg disk image with proper header."""

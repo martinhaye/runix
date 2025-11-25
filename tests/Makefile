@@ -26,7 +26,7 @@ test-boot: bootstub.bin $(DISK_IMAGE)
 test-cat: bootstub.bin $(DISK_IMAGE)
 	@echo "=== Running cat test ==="
 	@$(PIM65) cat_test.json --disk $(DISK_IMAGE) --screen -n 500000 \
-		--keys "cat hello.txt\n" 2>&1 | tee /tmp/cat_test_output.txt | tail -60
+		--keys "cd testdata\ncat hello.txt\n" 2>&1 | tee /tmp/cat_test_output.txt | tail -60
 	@echo ""
 	@echo "=== Verifying cat output ==="
 	@if grep -q "Hello from Runix" /tmp/cat_test_output.txt && \
