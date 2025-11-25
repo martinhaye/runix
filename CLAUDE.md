@@ -221,6 +221,11 @@ From `src/kernel/kernel.s`:
   - Input: A/X = filename pointer (Pascal string), Y = directory (DIRSCAN_CWD, DIRSCAN_ROOT, etc.)
   - Output: clc on success, A/X = block number, Y = length in pages
 
+- **progalloc** ($C0F): Allocate program memory
+  - Input: Y = number of pages to allocate
+  - Output: X = page number of allocated memory
+  - Memory is automatically freed when program exits
+
 - **rdblks** ($C06): Read blocks from disk
   - Input: A/X = block number, Y = target page, zarg = number of blocks
   - Output: aborts on failure (no need to check)
@@ -236,9 +241,10 @@ Location: `src/bin/cat.s`
 The `cat` utility demonstrates:
 - Accepting filename argument in A/X
 - Using `dirscan` to find file in current directory
-- Using `rdblks` to read file contents
+- Using `progalloc` to dynamically allocate buffer (handles any file size)
+- Using `rdblks` to read file contents into allocated buffer
 - Filtering and printing printable characters
-- Allocating a static buffer (.align 256, .res 2048)
+- No static buffer needed - allocation is dynamic and freed on exit
 
 ### Testing Utilities
 
@@ -250,8 +256,44 @@ The `cat` utility demonstrates:
 
 3. **Verify**: Use `./lsrunix.py build/runix.2mg` to see files on disk
 
-4. **Test**: Run `make test` to boot the system, then type commands at the `#` prompt
-   - Example: `cat hello.txt`
+4. **Automated tests**: Run `make test` - tests use pim65's `--keys` to inject commands
+   - Example: `--keys "cat hello.txt\n"` automatically types and runs the command
+   - Screen output is captured and verified for expected strings
+
+### Common Pitfalls: Relocation and Addressing
+
+**Problem**: Utilities are loaded at `$1000` but relocated at runtime to different addresses (e.g., `$2000`). Immediate mode addressing breaks relocation.
+
+**Why**: The relocator only fixes 3-byte absolute addressing instructions, NOT 2-byte immediate mode:
+- `LDA buffer` (absolute: `$AD xx xx`) - ✅ Relocator fixes `xx xx`
+- `LDA #>buffer` (immediate: `$A9 xx`) - ❌ Relocator can't fix literal value `xx`
+
+**Solution**: The `bit` + `ldy/lda *-1` trick to get relocated addresses at runtime:
+
+```asm
+; To get high byte of relocated buffer address:
+bit buffer    ; Dummy instruction: $2C xx xx (absolute addressing)
+              ; Relocator will fix xx xx to actual buffer address
+ldy *-1       ; Load from (PC-1) = high byte of buffer operand
+              ; Now Y contains the HIGH byte of buffer's relocated address
+
+; For page-aligned buffers (low byte is always $00):
+lda #0
+sta ptr       ; Low byte is 0
+sty ptr+1     ; High byte from trick above
+```
+
+**How it works**:
+1. `bit buffer` assembles as `2C lo hi` where `lo hi` is buffer's address
+2. Relocator adjusts `lo hi` to match runtime location
+3. `*-1` means "address of previous byte" = the `hi` byte we want
+4. `ldy *-1` loads that relocated high byte into Y
+
+**Debugging tips**:
+- Use `ca65 -l listing.lst` to see assembled opcodes and addresses
+- Check if hitting BRK handler unexpectedly (PC in `$1300-$1400` range = brkhnd)
+- Add temporary `print` debug statements to trace execution
+- Remember: `print` generates BRK instructions, remove before final version
 
 ## Current State
 

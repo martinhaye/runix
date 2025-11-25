@@ -21,9 +21,20 @@
 	stx fileblk+1
 	sty npages
 
+	; Check for empty file
+	beq done
+
+	; Allocate buffer dynamically using progalloc
+	; Input: Y = # pages; Output: X = page number
+	tya		; Y already has npages from dirscan
+	pha		; save npages for later
+	jsr progalloc	; allocate Y pages, returns page in X
+	stx bufpage	; save allocated page number
+	pla		; restore npages
+	sta npages
+
 	; Calculate number of 512-byte blocks needed
 	; pages are 256 bytes, so divide by 2 (round up)
-	tya
 	clc
 	adc #1		; round up
 	lsr		; divide by 2
@@ -31,26 +42,18 @@
 
 	; Read all blocks of the file
 	; Set zarg = number of blocks to read
-	lda nblks
 	sta zarg
-	; Load block number and target page
+	; Load block number and target page (from progalloc)
 	lda fileblk
 	ldx fileblk+1
-	bit buffer
-	ldy *-1		; hi byte of buffer
+	ldy bufpage	; target page from progalloc
 	jsr rdblks
 
-	; Calculate total bytes = npages * 256
-	; We'll print all characters, stopping at end of data
-	lda npages
-	beq done	; zero pages = nothing to print
-
-	; Set up pointer to buffer using bit+lda trick
-	bit buffer
-	lda *-1		; get high byte of buffer
-	sta ptmp+1
-	lda #0		; buffer is page-aligned, low byte is 0
+	; Set up pointer to buffer (page-aligned, so low byte = 0)
+	lda #0
 	sta ptmp
+	lda bufpage
+	sta ptmp+1
 
 	; Y is byte offset within page, X is page counter
 	ldx npages	; number of pages to scan
@@ -95,7 +98,6 @@ npages  = *+1
 	bit $11
 nblks   = *+1
 	bit $11
+bufpage = *+1
+	bit $11
 .endproc
-
-	.align 256
-buffer:	.res 2048	; 4 blocks = 2048 bytes max file size for now
