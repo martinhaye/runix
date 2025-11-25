@@ -6,12 +6,13 @@
         .org $1000	; relocated at load time
 
 .proc cat
-	; Save filename pointer for dirscan
+	; Save filename pointer and search for file
 	sta ptmp
 	stx ptmp+1
-
-	; Search for file in current working directory
+	; dirscan expects filename in A/X, directory in Y
 	ldy #DIRSCAN_CWD
+	lda ptmp
+	ldx ptmp+1
 	jsr dirscan
 	bcc_or_die "file not found"
 
@@ -29,13 +30,14 @@
 	sta nblks
 
 	; Read all blocks of the file
-	; First set zarg = number of blocks to read
+	; Set zarg = number of blocks to read
 	lda nblks
 	sta zarg
-	; Now load block number and target page
+	; Load block number and target page
 	lda fileblk
 	ldx fileblk+1
-	ldy #>buffer	; target page (hi byte of buffer)
+	bit buffer
+	ldy *-1		; hi byte of buffer
 	jsr rdblks
 
 	; Calculate total bytes = npages * 256
@@ -43,11 +45,12 @@
 	lda npages
 	beq done	; zero pages = nothing to print
 
-	; Set up loop through buffer
-	lda #<buffer
-	sta ptmp
-	lda #>buffer
+	; Set up pointer to buffer using bit+lda trick
+	bit buffer
+	lda *-1		; get high byte of buffer
 	sta ptmp+1
+	lda #0		; buffer is page-aligned, low byte is 0
+	sta ptmp
 
 	; Y is byte offset within page, X is page counter
 	ldx npages	; number of pages to scan
