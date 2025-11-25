@@ -4,6 +4,45 @@
 
 **Runix** is a bare-metal operating system for the Apple III computer, written entirely in 6502 assembly language. The name "Runix" plays on Unix conventions while introducing the concept of "runes" - dynamically loadable system libraries.
 
+## Development Environment Setup
+
+### Quick Start (Ubuntu/Debian Linux)
+
+To set up your development environment:
+
+```bash
+# Install cc65 toolchain (ca65 assembler and ld65 linker)
+apt-get install -y cc65
+
+# Verify installation
+ca65 --version
+ld65 --version
+
+# Build and test
+make test
+```
+
+### What You Get
+
+After running `make test`, you should see:
+- All source files assembled successfully
+- Disk image created at `build/runix.2mg`
+- Boot test running in pim65 simulator
+- Console output showing "Welcome to Runix 0.1" with prompt
+
+The instruction limit message at the end is expected - it's just preventing infinite loops during testing.
+
+### Prerequisites
+
+- **cc65 package** (version 2.18+): Provides ca65 assembler and ld65 linker
+- **Python 3**: Already included in most Linux distributions
+- **pim65 simulator**: Included in this repository as a submodule
+
+### Common Issues
+
+- If `apt-get update` fails with repository errors, you can skip the update and install cc65 directly with `apt-get install -y cc65`
+- The build creates a `build/` directory automatically - no need to create it manually
+
 ## Key Architecture Concepts
 
 ### Runes (Dynamic Libraries)
@@ -162,25 +201,117 @@ Creates a 32MB (65536 blocks) disk image with:
 - Proper directory entry formatting (ASCII names)
 - File layout: kernel → runes dir → runes → shell → bins → demos
 
+## Implementing Utilities
+
+### Creating a New Utility
+
+Utilities go in `src/bin/` and follow this pattern:
+
+1. **Include base definitions**: `.include "base.i"`
+2. **Set origin**: `.org $1000` (will be relocated at runtime)
+3. **Accept arguments**: Filename/argument string pointer comes in A/X (Pascal-style length-prefixed)
+4. **Use kernel APIs**: See Rune 0 and Rune 1 vectors in `base.i`
+5. **Return**: `rts` when done
+
+### Key Kernel APIs for File Operations
+
+From `src/kernel/kernel.s`:
+
+- **dirscan** ($C0C): Search for file in directory
+  - Input: A/X = filename pointer (Pascal string), Y = directory (DIRSCAN_CWD, DIRSCAN_ROOT, etc.)
+  - Output: clc on success, A/X = block number, Y = length in pages
+
+- **progalloc** ($C0F): Allocate program memory
+  - Input: Y = number of pages to allocate
+  - Output: X = page number of allocated memory
+  - Memory is automatically freed when program exits
+
+- **rdblks** ($C06): Read blocks from disk
+  - Input: A/X = block number, Y = target page, zarg = number of blocks
+  - Output: aborts on failure (no need to check)
+
+- **cout** ($C26): Print one character
+  - Input: A = character (hi-bit ignored)
+  - Output: preserves A/X/Y
+
+### Example: The cat Utility
+
+Location: `src/bin/cat.s`
+
+The `cat` utility demonstrates:
+- Accepting filename argument in A/X
+- Using `dirscan` to find file in current directory
+- Using `progalloc` to dynamically allocate buffer (handles any file size)
+- Using `rdblks` to read file contents into allocated buffer
+- Filtering and printing printable characters
+- No static buffer needed - allocation is dynamic and freed on exit
+
+### Testing Utilities
+
+1. **Add test data**: Place files in `build/testdata/` before building
+   - `mkrunix.py` automatically adds testdata files to root directory
+   - Example: `build/testdata/hello.txt`
+
+2. **Rebuild**: Run `make` to rebuild disk image with test data
+
+3. **Verify**: Use `./lsrunix.py build/runix.2mg` to see files on disk
+
+4. **Automated tests**: Run `make test` - tests use pim65's `--keys` to inject commands
+   - Example: `--keys "cat hello.txt\n"` automatically types and runs the command
+   - Screen output is captured and verified for expected strings
+
+### Common Pitfalls: Relocation and Addressing
+
+**Problem**: Utilities are loaded at `$1000` but relocated at runtime to different addresses (e.g., `$2000`). Immediate mode addressing breaks relocation.
+
+**Why**: The relocator only fixes 3-byte absolute addressing instructions, NOT 2-byte immediate mode:
+- `LDA buffer` (absolute: `$AD xx xx`) - ✅ Relocator fixes `xx xx`
+- `LDA #>buffer` (immediate: `$A9 xx`) - ❌ Relocator can't fix literal value `xx`
+
+**Solution**: The `bit` + `ldy/lda *-1` trick to get relocated addresses at runtime:
+
+```asm
+; To get high byte of relocated buffer address:
+bit buffer    ; Dummy instruction: $2C xx xx (absolute addressing)
+              ; Relocator will fix xx xx to actual buffer address
+ldy *-1       ; Load from (PC-1) = high byte of buffer operand
+              ; Now Y contains the HIGH byte of buffer's relocated address
+
+; For page-aligned buffers (low byte is always $00):
+lda #0
+sta ptr       ; Low byte is 0
+sty ptr+1     ; High byte from trick above
+```
+
+**How it works**:
+1. `bit buffer` assembles as `2C lo hi` where `lo hi` is buffer's address
+2. Relocator adjusts `lo hi` to match runtime location
+3. `*-1` means "address of previous byte" = the `hi` byte we want
+4. `ldy *-1` loads that relocated high byte into Y
+
+**Debugging tips**:
+- Use `ca65 -l listing.lst` to see assembled opcodes and addresses
+- Check if hitting BRK handler unexpectedly (PC in `$1300-$1400` range = brkhnd)
+- Add temporary `print` debug statements to trace execution
+- Remember: `print` generates BRK instructions, remove before final version
+
 ## Current State
 
 ### Implemented
 
 - Complete build system (Makefile + mkrunix.py)
-- Source directory structure
-- Stub assembly files for all modules (just `rts` for now)
+- Kernel with full directory scanning and block I/O
+- Shell with command-line parsing and argument passing
+- Rune loader and relocation system
+- Working utilities: cat, ls, pwd, cd, echo
+- Test data file support (build/testdata/ → root directory)
 - Proper .2mg disk image generation with Runix filesystem
-- Root directory and runes subdirectory structure
 
 ### To Do
 
-- Implement bootloader (block 0 loader)
-- Implement kernel initialization
-- Implement rune loader and relocation
-- Implement system runes (Rune 00: block I/O, file ops)
-- Implement shell
-- Implement string macros (PRINT, LDSTR)
-- Implement utilities (pwd, ls, etc.)
+- Implement more utilities (cp, mv, rm, mkdir, etc.)
+- Add write support to filesystem
+- Implement more runes (graphics, sound, etc.)
 
 ## Assembly Language Notes
 
