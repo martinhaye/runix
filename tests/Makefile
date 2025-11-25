@@ -1,6 +1,8 @@
 # Runix Integration Tests using pim65
 
 PYTHON = python3
+# Set PYTHONPATH to include parent directory so pim65 module can be found
+export PYTHONPATH := $(shell pwd)/..
 PIM65 = $(PYTHON) -m pim65
 DISK_IMAGE = ../build/runix.2mg
 

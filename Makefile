@@ -46,7 +46,7 @@ DEMO_BINS = $(patsubst src/demos/%.s,$(BUILD)/demos/%.bin,$(DEMO_SRC))
 # Final disk image
 IMAGE = $(BUILD)/runix.2mg
 
-.PHONY: all clean dirs deploy
+.PHONY: all clean dirs deploy test
 
 all: $(IMAGE)
 
@@ -102,6 +102,10 @@ deploy: $(IMAGE)
 		echo "Note: Disk server $(DISKSERVER) not found on network"; \
 	fi
 
+# Run tests (requires disk image to be built first)
+test: $(IMAGE)
+	@$(MAKE) -C tests test
+
 clean:
 	rm -rf $(BUILD)
 
@@ -111,6 +115,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  all (default) - Build disk image and auto-deploy if server is available"
+	@echo "  test          - Build disk image and run integration tests"
 	@echo "  deploy        - Deploy disk image to $(DISKSERVER) (fails if not found)"
 	@echo "  clean         - Remove all build artifacts"
 	@echo "  help          - Show this help message"
