@@ -4,6 +4,45 @@
 
 **Runix** is a bare-metal operating system for the Apple III computer, written entirely in 6502 assembly language. The name "Runix" plays on Unix conventions while introducing the concept of "runes" - dynamically loadable system libraries.
 
+## Development Environment Setup
+
+### Quick Start (Ubuntu/Debian Linux)
+
+To set up your development environment:
+
+```bash
+# Install cc65 toolchain (ca65 assembler and ld65 linker)
+apt-get install -y cc65
+
+# Verify installation
+ca65 --version
+ld65 --version
+
+# Build and test
+make test
+```
+
+### What You Get
+
+After running `make test`, you should see:
+- All source files assembled successfully
+- Disk image created at `build/runix.2mg`
+- Boot test running in pim65 simulator
+- Console output showing "Welcome to Runix 0.1" with prompt
+
+The instruction limit message at the end is expected - it's just preventing infinite loops during testing.
+
+### Prerequisites
+
+- **cc65 package** (version 2.18+): Provides ca65 assembler and ld65 linker
+- **Python 3**: Already included in most Linux distributions
+- **pim65 simulator**: Included in this repository as a submodule
+
+### Common Issues
+
+- If `apt-get update` fails with repository errors, you can skip the update and install cc65 directly with `apt-get install -y cc65`
+- The build creates a `build/` directory automatically - no need to create it manually
+
 ## Key Architecture Concepts
 
 ### Runes (Dynamic Libraries)
