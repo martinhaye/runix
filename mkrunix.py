@@ -177,6 +177,20 @@ def build_filesystem(build_dir, output_path):
             demo_name = demo_file.stem
             demos_entries.append(create_dir_entry(demo_name, demo_block, pages_needed(demo_data)))
 
+    # 6a. Add test data files to root directory
+    testdata_count = 0
+    testdata_dir = Path(build_dir) / 'testdata'
+    if testdata_dir.exists():
+        testdata_files = sorted(testdata_dir.glob('*'))
+        for test_file in testdata_files:
+            if test_file.is_file():
+                test_data = read_binary(test_file)
+                test_block = next_free_block
+                next_free_block = write_file_to_image(image, test_block, test_data)
+                test_name = test_file.name  # Keep full name including extension
+                root_entries.append(create_dir_entry(test_name, test_block, pages_needed(test_data)))
+                testdata_count += 1
+
     # 7. Write root directory (blocks 1-4)
     root_dir = write_directory_entries(root_entries)
     # First 2 bytes: next free block pointer
@@ -211,6 +225,8 @@ def build_filesystem(build_dir, output_path):
     print(f"  Rune entries: {len(runes_entries)}")
     print(f"  Bin entries: {len(bin_entries)}")
     print(f"  Demo entries: {len(demos_entries)}")
+    if testdata_count > 0:
+        print(f"  Test data files: {testdata_count}")
 
 def write_2mg(payload, output_path):
     """Write a .2mg disk image with proper header."""

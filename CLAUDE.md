@@ -201,25 +201,75 @@ Creates a 32MB (65536 blocks) disk image with:
 - Proper directory entry formatting (ASCII names)
 - File layout: kernel → runes dir → runes → shell → bins → demos
 
+## Implementing Utilities
+
+### Creating a New Utility
+
+Utilities go in `src/bin/` and follow this pattern:
+
+1. **Include base definitions**: `.include "base.i"`
+2. **Set origin**: `.org $1000` (will be relocated at runtime)
+3. **Accept arguments**: Filename/argument string pointer comes in A/X (Pascal-style length-prefixed)
+4. **Use kernel APIs**: See Rune 0 and Rune 1 vectors in `base.i`
+5. **Return**: `rts` when done
+
+### Key Kernel APIs for File Operations
+
+From `src/kernel/kernel.s`:
+
+- **dirscan** ($C0C): Search for file in directory
+  - Input: A/X = filename pointer (Pascal string), Y = directory (DIRSCAN_CWD, DIRSCAN_ROOT, etc.)
+  - Output: clc on success, A/X = block number, Y = length in pages
+
+- **rdblks** ($C06): Read blocks from disk
+  - Input: A/X = block number, Y = target page, zarg = number of blocks
+  - Output: aborts on failure (no need to check)
+
+- **cout** ($C26): Print one character
+  - Input: A = character (hi-bit ignored)
+  - Output: preserves A/X/Y
+
+### Example: The cat Utility
+
+Location: `src/bin/cat.s`
+
+The `cat` utility demonstrates:
+- Accepting filename argument in A/X
+- Using `dirscan` to find file in current directory
+- Using `rdblks` to read file contents
+- Filtering and printing printable characters
+- Allocating a static buffer (.align 256, .res 2048)
+
+### Testing Utilities
+
+1. **Add test data**: Place files in `build/testdata/` before building
+   - `mkrunix.py` automatically adds testdata files to root directory
+   - Example: `build/testdata/hello.txt`
+
+2. **Rebuild**: Run `make` to rebuild disk image with test data
+
+3. **Verify**: Use `./lsrunix.py build/runix.2mg` to see files on disk
+
+4. **Test**: Run `make test` to boot the system, then type commands at the `#` prompt
+   - Example: `cat hello.txt`
+
 ## Current State
 
 ### Implemented
 
 - Complete build system (Makefile + mkrunix.py)
-- Source directory structure
-- Stub assembly files for all modules (just `rts` for now)
+- Kernel with full directory scanning and block I/O
+- Shell with command-line parsing and argument passing
+- Rune loader and relocation system
+- Working utilities: cat, ls, pwd, cd, echo
+- Test data file support (build/testdata/ → root directory)
 - Proper .2mg disk image generation with Runix filesystem
-- Root directory and runes subdirectory structure
 
 ### To Do
 
-- Implement bootloader (block 0 loader)
-- Implement kernel initialization
-- Implement rune loader and relocation
-- Implement system runes (Rune 00: block I/O, file ops)
-- Implement shell
-- Implement string macros (PRINT, LDSTR)
-- Implement utilities (pwd, ls, etc.)
+- Implement more utilities (cp, mv, rm, mkdir, etc.)
+- Add write support to filesystem
+- Implement more runes (graphics, sound, etc.)
 
 ## Assembly Language Notes
 
