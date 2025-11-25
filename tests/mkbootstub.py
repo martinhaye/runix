@@ -105,6 +105,6 @@ boot_code.extend([
 boot_stub = bytes(boot_code)
 
 if __name__ == "__main__":
-    with open("tests/bootstub.bin", "wb") as f:
+    with open("bootstub.bin", "wb") as f:
         f.write(boot_stub)
-    print(f"Created tests/bootstub.bin ({len(boot_stub)} bytes)")
+    print(f"Created bootstub.bin ({len(boot_stub)} bytes)")
