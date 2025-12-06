@@ -6,6 +6,7 @@
 
 
 pscan	= $50	; length 2
+nmatch	= $52	; length 2
 
 current	= $60	; length 16
 lower	= $70	; "
@@ -14,6 +15,8 @@ upper	= $80	; "
 .proc main
 	lda #0
 	sta pscan
+	sta nmatch
+	sta nmatch+1
 	bit data
 	lda *-1
 	sta pscan+1
@@ -28,6 +31,7 @@ first:	ldy #0
 	pha
 	lda #lower
 	ldx #0
+	print "----------\n"
 	print "lower=%s\n"
 	pla
 
@@ -50,27 +54,43 @@ first:	ldy #0
 	beq :+
 	fatal "expecting ,"
 :
-
+	; if both ranges have odd length, no matches are possible
+	lda lower
+	and #1
+	beq even
+	lda upper
+	and #1
+	beq even
+	print "Skipping odd range.\n"
+	jmp first
+even:
 	; start at lower
 	ldx #15
 :	lda lower,x
 	sta current,x
 	dex
 	bpl :-
+	jsr halve
+	jsr double
 
 check:	print "chk\n"
 	ldx #current
 	ldy #lower
 	jsr compare
-	php
-	lda #'*'
-	jsr cout
-	plp
-	beq match
+	beq oklo
 	bcc adv
-match:	lda #current
+oklo:	ldx #current
+	ldy #upper
+	jsr compare
+	bcs adv
+match:	inc nmatch
+	bne :+
+	inc nmatch+1
+:
+	lda #current
 	ldx #0
 	print "match: %s\n"
+	jsr rdkey
 adv:	jsr halve
 	lda #current
 	ldx #0
@@ -83,29 +103,19 @@ adv:	jsr halve
 	lda #current
 	ldx #0
 	print "doubld='%s'\n"
+
 	ldx #current
 	ldy #upper
 	jsr compare
-
-	php
-	lda #'c'
-	bcc :+
-	lda #'C'
-:	jsr cout
-	lda #'z'
-	plp
-	php
-	bne :+
-	lda #'Z'
-:	jsr cout
-	jsr crout
-	plp
 	
 	beq ok
-	bcs finish
+	bcs gonx
 ok:	jmp check
+gonx:	jmp first
 
-finish:	print "Done.\n"
+finish:	lda nmatch
+	ldx nmatch+1
+	print "nmatch=%x\n"
 	rts
 
 .endproc
@@ -124,7 +134,7 @@ lup:	pha		; length to compare
 	bpl lup
 	lda #0
 	rts
-done:	php
+done:	php	; preserve P while popping A from stack
 	pla
 	tax
 	pla
@@ -164,9 +174,19 @@ digit:	lda current,x
 	sta current,x
 	cmp #'9'+1
 	bcc done
+	lda #'0'
+	sta current,x
 	dex
 	bne digit
-	fatal "handle all 9's"
+all9:	lda #'1'	; all 9's - change to 1000...
+	inc current
+	ldx #1
+lup9:	sta current,x
+	lda #'0'
+	cpx current
+	beq done
+	inx
+	bne lup9	; always taken
 done:	rts
 .endproc
 
