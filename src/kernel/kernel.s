@@ -845,15 +845,23 @@ a2brk:	; put things back the way native brk would be
 	sta @ld2+2
 	tax		; save for later
 @ld1:	lda $1111	; first byte
-	beq @bkpnt	; BRK+00 means actual breakpoint
-	cmp #$20
+	bne :+
+	jmp @bkpnt	; BRK+00 means actual breakpoint
+:	cmp #$20
 	bcs @print	; >= $20 means to print zero-terminated string
 	sty areg	; len-prefixed str - put its ptr in A/X (loaded on ret)
 	stx xreg
 	bcc @adv	; always taken
-@print:	ldx #0
-@scanz:	jsr _cout	; print char
-	inx
+@print:	ldx #0		; X - index in string
+	ldy #0		; Y - percent mode (1=on)
+@scanz:	cpy #0
+	bne @pct
+	cmp #'%'
+	bne @dopr
+	iny		; set percent mode
+	bne @next	; always taken
+@dopr:	jsr _cout	; print char
+@next:	inx
 @ld2:	lda $1111,x	; find terminator
 	bne @scanz
 	txa
@@ -867,6 +875,46 @@ a2brk:	; put things back the way native brk would be
 	ldx xreg
 	ldy yreg
 @irq:	rti
+@pct:	dey		; turn off percent mode
+	cmp #'s'
+	beq @pstr
+	cmp #'x'
+	bne @dopr
+@phex:	lda #'$'
+	jsr cout
+	lda xreg
+	jsr prbyte
+	lda areg
+	jsr prbyte
+	jmp @next
+@pstr:	lda areg
+	sta @psl1+1
+	sta @psl2+1
+	sta @psl3+1
+	lda xreg
+	sta @psl1+2
+	sta @psl2+2
+	sta @psl3+2
+	ldy #0
+@psl1:	lda $1111,y	; self-mod above
+	cmp #32
+	bcc @plen
+@pzt:	iny
+@psl2:	lda $1111,y	; self-mod above
+	beq @psdn
+	jsr cout
+	jmp @pzt
+@psdn:	jmp @next
+@plen:	pha
+@pslp:	pla
+	beq @psdn
+	sec
+	sbc #1
+	pha
+	iny
+@psl3:	lda $1111,y	; self-mod above
+	jsr cout
+	jmp @pslp
 
 ; breakpoint (BRK+00) - print location and registers
 @bkpnt:	jsr _crout	; always start on next new line
