@@ -97,6 +97,10 @@ match:	inc nmatch
 	lda #current
 	ldx #0
 	print "match: %s\n"
+	jsr accum
+	lda #sum
+	ldx #0
+	print "sum: %s\n"
 	jsr rdkey
 adv:	jsr halve
 	lda #current
@@ -123,6 +127,9 @@ gonx:	jmp first
 finish:	lda nmatch
 	ldx nmatch+1
 	print "nmatch=%x\n"
+	lda #sum
+	ldx #0
+	print "final sum=%s\n"
 	rts
 
 .endproc
@@ -206,6 +213,36 @@ st:	sta 0,y
 	lda #'0'
 	sta 1,x
 	inc 0,x
+	rts
+.endproc
+
+.proc accum
+	; adjust sum so it has current digits plus 1
+adj:	lda current
+	cmp sum
+	bcc noadj
+	ldx #sum
+	jsr ripple
+	jmp adj
+noadj:	; now add
+	ldx current
+	ldy sum
+	clc
+lup:	lda current,x
+	and #$F
+	adc sum,y
+	cmp #'9'+1
+	bcc nocar
+	sec
+	sbc #10
+	sec
+nocar:	sta sum,y
+	dey
+	dex
+	bne lup
+	lda sum,y
+	adc #0
+	sta sum,y
 	rts
 .endproc
 
