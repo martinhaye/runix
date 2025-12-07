@@ -302,6 +302,181 @@ class TestArithmetic:
         assert not self.cpu.get_flag(CPU.FLAG_C)  # Borrow occurred
 
 
+class TestDecimalMode:
+    """Tests for decimal (BCD) mode arithmetic."""
+
+    def setup_method(self):
+        self.mem = Memory()
+        self.cpu = CPU(self.mem)
+        self.mem.set_reset_vector(0x1000)
+        self.cpu.reset()
+        self.cpu.set_flag(CPU.FLAG_D, True)  # Enable decimal mode
+
+    def test_adc_decimal_simple(self):
+        """ADC in decimal: 09 + 01 = 10."""
+        self.cpu.a = 0x09
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)  # ADC #
+        self.mem.write(0x1001, 0x01)
+        self.cpu.step()
+        assert self.cpu.a == 0x10
+        assert not self.cpu.get_flag(CPU.FLAG_C)
+
+    def test_adc_decimal_carry(self):
+        """ADC in decimal: 58 + 46 = 04 with carry."""
+        self.cpu.a = 0x58
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x46)
+        self.cpu.step()
+        assert self.cpu.a == 0x04
+        assert self.cpu.get_flag(CPU.FLAG_C)
+
+    def test_adc_decimal_with_carry_in(self):
+        """ADC in decimal: 58 + 46 + 1 = 05 with carry."""
+        self.cpu.a = 0x58
+        self.cpu.set_flag(CPU.FLAG_C, True)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x46)
+        self.cpu.step()
+        assert self.cpu.a == 0x05
+        assert self.cpu.get_flag(CPU.FLAG_C)
+
+    def test_adc_decimal_zero(self):
+        """ADC in decimal: 00 + 00 = 00 with Z flag."""
+        self.cpu.a = 0x00
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x00)
+        self.cpu.step()
+        assert self.cpu.a == 0x00
+        assert self.cpu.get_flag(CPU.FLAG_Z)
+
+    def test_adc_decimal_99_plus_1(self):
+        """ADC in decimal: 99 + 01 = 00 with carry."""
+        self.cpu.a = 0x99
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x01)
+        self.cpu.step()
+        assert self.cpu.a == 0x00
+        assert self.cpu.get_flag(CPU.FLAG_C)
+        assert self.cpu.get_flag(CPU.FLAG_Z)
+
+    def test_adc_decimal_overflow_positive(self):
+        """ADC decimal overflow: 50 + 50 = 00 (V flag behavior).
+
+        In decimal mode, overflow is tricky. The V flag is set based on
+        signed arithmetic interpretation: positive + positive = negative.
+        50 (BCD) = $50 (positive in signed), 50 + 50 = $00 with carry.
+        V should be set because we went from positive to "negative" territory.
+        """
+        self.cpu.a = 0x50
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x50)
+        self.cpu.step()
+        assert self.cpu.a == 0x00
+        assert self.cpu.get_flag(CPU.FLAG_C)
+        assert self.cpu.get_flag(CPU.FLAG_V)
+
+    def test_adc_decimal_overflow_edge_case(self):
+        """ADC decimal: 79 + 01 = 80 (no V flag).
+
+        The V flag in decimal mode is based on the binary result.
+        Binary: 0x79 + 0x01 = 0x7A (positive + positive = positive, no overflow).
+        BCD: 79 + 01 = 80, which becomes 0x80 after adjustment.
+        Even though the BCD result has bit 7 set, V is not set because
+        the binary arithmetic didn't overflow.
+        """
+        self.cpu.a = 0x79
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x01)
+        self.cpu.step()
+        assert self.cpu.a == 0x80
+        assert not self.cpu.get_flag(CPU.FLAG_C)
+        assert not self.cpu.get_flag(CPU.FLAG_V)
+
+    def test_adc_decimal_no_overflow(self):
+        """ADC decimal: 40 + 30 = 70 (no V flag)."""
+        self.cpu.a = 0x40
+        self.cpu.set_flag(CPU.FLAG_C, False)
+        self.mem.write(0x1000, 0x69)
+        self.mem.write(0x1001, 0x30)
+        self.cpu.step()
+        assert self.cpu.a == 0x70
+        assert not self.cpu.get_flag(CPU.FLAG_V)
+
+    def test_sbc_decimal_simple(self):
+        """SBC in decimal: 46 - 12 = 34."""
+        self.cpu.a = 0x46
+        self.cpu.set_flag(CPU.FLAG_C, True)  # No borrow
+        self.mem.write(0x1000, 0xE9)  # SBC #
+        self.mem.write(0x1001, 0x12)
+        self.cpu.step()
+        assert self.cpu.a == 0x34
+        assert self.cpu.get_flag(CPU.FLAG_C)
+
+    def test_sbc_decimal_borrow(self):
+        """SBC in decimal: 12 - 34 = 78 with borrow."""
+        self.cpu.a = 0x12
+        self.cpu.set_flag(CPU.FLAG_C, True)
+        self.mem.write(0x1000, 0xE9)
+        self.mem.write(0x1001, 0x34)
+        self.cpu.step()
+        assert self.cpu.a == 0x78
+        assert not self.cpu.get_flag(CPU.FLAG_C)
+
+    def test_sbc_decimal_with_borrow_in(self):
+        """SBC in decimal: 46 - 12 - 1 = 33."""
+        self.cpu.a = 0x46
+        self.cpu.set_flag(CPU.FLAG_C, False)  # Borrow in
+        self.mem.write(0x1000, 0xE9)
+        self.mem.write(0x1001, 0x12)
+        self.cpu.step()
+        assert self.cpu.a == 0x33
+        assert self.cpu.get_flag(CPU.FLAG_C)
+
+    def test_sbc_decimal_zero(self):
+        """SBC in decimal: 00 - 00 = 00 with Z flag."""
+        self.cpu.a = 0x00
+        self.cpu.set_flag(CPU.FLAG_C, True)
+        self.mem.write(0x1000, 0xE9)
+        self.mem.write(0x1001, 0x00)
+        self.cpu.step()
+        assert self.cpu.a == 0x00
+        assert self.cpu.get_flag(CPU.FLAG_Z)
+
+    def test_sbc_decimal_overflow(self):
+        """SBC decimal overflow: 50 - 30 = 20 (no V).
+
+        Overflow in decimal SBC is also tricky.
+        This tests a case where V should NOT be set.
+        """
+        self.cpu.a = 0x50
+        self.cpu.set_flag(CPU.FLAG_C, True)
+        self.mem.write(0x1000, 0xE9)
+        self.mem.write(0x1001, 0x30)
+        self.cpu.step()
+        assert self.cpu.a == 0x20
+        assert not self.cpu.get_flag(CPU.FLAG_V)
+
+    def test_sbc_decimal_overflow_negative(self):
+        """SBC decimal: 80 - 01 = 79 (V flag set).
+
+        Subtracting from negative (80 in signed) to get positive (79)
+        should set the V flag.
+        """
+        self.cpu.a = 0x80
+        self.cpu.set_flag(CPU.FLAG_C, True)
+        self.mem.write(0x1000, 0xE9)
+        self.mem.write(0x1001, 0x01)
+        self.cpu.step()
+        assert self.cpu.a == 0x79
+        assert self.cpu.get_flag(CPU.FLAG_V)
+
+
 class TestLogical:
     """Tests for logical operations."""
 

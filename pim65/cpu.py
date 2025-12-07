@@ -21,7 +21,7 @@ class CPU:
     FLAG_C = 0x01  # Carry
     FLAG_Z = 0x02  # Zero
     FLAG_I = 0x04  # Interrupt disable
-    FLAG_D = 0x08  # Decimal mode (not implemented)
+    FLAG_D = 0x08  # Decimal mode
     FLAG_B = 0x10  # Break
     FLAG_U = 0x20  # Unused (always 1)
     FLAG_V = 0x40  # Overflow
@@ -189,14 +189,42 @@ class CPU:
         """Add with carry."""
         value = self.memory.read(addr)
         carry = 1 if self.get_flag(self.FLAG_C) else 0
-        result = self.a + value + carry
 
-        # Overflow: sign of result differs from both operands
-        self.set_flag(self.FLAG_V,
-                      ((self.a ^ result) & (value ^ result) & 0x80) != 0)
-        self.set_flag(self.FLAG_C, result > 0xFF)
-        self.a = result & 0xFF
-        self.update_nz(self.a)
+        if self.get_flag(self.FLAG_D):
+            # BCD mode
+            # Calculate binary result for overflow detection
+            binary_result = self.a + value + carry
+
+            # Overflow: same as binary mode (sign bit interpretation)
+            self.set_flag(self.FLAG_V,
+                          ((self.a ^ binary_result) & (value ^ binary_result) & 0x80) != 0)
+
+            # Add low nibbles
+            lo = (self.a & 0x0F) + (value & 0x0F) + carry
+            if lo > 9:
+                lo += 6
+
+            # Add high nibbles
+            hi = (self.a >> 4) + (value >> 4) + (1 if lo > 15 else 0)
+
+            if hi > 9:
+                hi += 6
+
+            self.set_flag(self.FLAG_C, hi > 15)
+            self.a = ((hi & 0x0F) << 4) | (lo & 0x0F)
+
+            # N and Z flags use the final BCD result
+            self.update_nz(self.a)
+        else:
+            # Binary mode
+            result = self.a + value + carry
+
+            # Overflow: sign of result differs from both operands
+            self.set_flag(self.FLAG_V,
+                          ((self.a ^ result) & (value ^ result) & 0x80) != 0)
+            self.set_flag(self.FLAG_C, result > 0xFF)
+            self.a = result & 0xFF
+            self.update_nz(self.a)
 
     def op_and(self, addr: int) -> None:
         """Logical AND."""
@@ -357,14 +385,42 @@ class CPU:
         """Subtract with carry (borrow)."""
         value = self.memory.read(addr)
         carry = 1 if self.get_flag(self.FLAG_C) else 0
-        result = self.a - value - (1 - carry)
 
-        # Overflow: sign of result differs when subtracting
-        self.set_flag(self.FLAG_V,
-                      ((self.a ^ result) & (~value ^ result) & 0x80) != 0)
-        self.set_flag(self.FLAG_C, result >= 0)
-        self.a = result & 0xFF
-        self.update_nz(self.a)
+        if self.get_flag(self.FLAG_D):
+            # BCD mode
+            # Calculate binary result for overflow detection
+            binary_result = self.a - value - (1 - carry)
+
+            # Overflow: same as binary mode (sign bit interpretation)
+            self.set_flag(self.FLAG_V,
+                          ((self.a ^ binary_result) & (~value ^ binary_result) & 0x80) != 0)
+
+            # Subtract low nibbles
+            lo = (self.a & 0x0F) - (value & 0x0F) - (1 - carry)
+            if lo < 0:
+                lo -= 6
+
+            # Subtract high nibbles
+            hi = (self.a >> 4) - (value >> 4) - (1 if lo < 0 else 0)
+
+            if hi < 0:
+                hi -= 6
+
+            self.set_flag(self.FLAG_C, hi >= 0)
+            self.a = ((hi & 0x0F) << 4) | (lo & 0x0F)
+
+            # N and Z flags use the final BCD result
+            self.update_nz(self.a)
+        else:
+            # Binary mode
+            result = self.a - value - (1 - carry)
+
+            # Overflow: sign of result differs when subtracting
+            self.set_flag(self.FLAG_V,
+                          ((self.a ^ result) & (~value ^ result) & 0x80) != 0)
+            self.set_flag(self.FLAG_C, result >= 0)
+            self.a = result & 0xFF
+            self.update_nz(self.a)
 
     def op_sta(self, addr: int) -> None:
         """Store accumulator."""
