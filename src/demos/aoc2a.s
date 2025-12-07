@@ -11,6 +11,7 @@ nmatch	= $52	; length 2
 current	= $60	; length 16
 lower	= $70	; "
 upper	= $80	; "
+sum	= $90	; "
 
 .proc main
 	lda #0
@@ -20,6 +21,12 @@ upper	= $80	; "
 	bit data
 	lda *-1
 	sta pscan+1
+
+	lda #1
+	sta sum
+	lda #'0'
+	sta sum+1
+
 first:	ldy #0
 	lda (pscan),y
 	bne :+
@@ -178,16 +185,28 @@ digit:	lda current,x
 	sta current,x
 	dex
 	bne digit
-all9:	lda #'1'	; all 9's - change to 1000...
-	inc current
+all9:	ldx #current
+	jsr ripple
 	ldx #1
-lup9:	sta current,x
-	lda #'0'
-	cpx current
-	beq done
-	inx
-	bne lup9	; always taken
+	bne digit	; always taken
 done:	rts
+.endproc
+
+.proc ripple
+	stx lup+1	; adjust loop stores
+	stx st+1
+	lda 0,x
+	tay		; get length
+lup:	lda 0,y
+	iny
+st:	sta 0,y
+	dey
+	dey
+	bne lup
+	lda #'0'
+	sta 1,x
+	inc 0,x
+	rts
 .endproc
 
 .proc getnum
