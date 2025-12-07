@@ -27,26 +27,26 @@ NDIRBLKS = 4
 	ldx #0
 	lda a3mon
 	cmp #$BA	; TSX on Apple /// rom
-	bne @gotpl
+	bne gotpl
 	ldx #$80
-@gotpl:	stx a3flg
+gotpl:	stx a3flg
 	
 	; set up the BRK handler
 	txa
-	bpl @a2brk
+	bpl a2
 	lda #$4C	; Apple III jumps to $FFCD on BRK/IRQ
 	sta $FFCD
 	lda #<brkhnd
 	sta $FFCE
 	lda #>brkhnd
 	sta $FFCF
-	bne @welcm	; always taken
-@a2brk:	lda #<a2brk
+	bne welcm	; always taken
+a2:	lda #<a2brk
 	sta $3F0	; Apple II does "JMP ($3F0)" on BRK/IRQ
 	lda #>a2brk
 	sta $3F1
 
-@welcm: ; display the welcome message and set initial rune vecs
+welcm: ; display the welcome message and set initial rune vecs
 	jsr _clrscr
 	print "Welcome to Runix 0.1\n"
 	jsr _resetrunes
@@ -73,7 +73,6 @@ NDIRBLKS = 4
 :	; Now run the shell
 	ldx #$20	; start allocating program space at $2000
 	stx nextprogpg
-	brk
 	lda #<s_shell
 	ldx #>s_shell
 	jsr _progrun
@@ -88,14 +87,14 @@ NDIRBLKS = 4
 	ldy #0
 	sty ptmp
 	sty tmp
-@crune:	lda rune0vecs,y	; rune0 is the kernel naturally
+crune:	lda rune0vecs,y	; rune0 is the kernel naturally
 	sta (ptmp),y
 	iny
 	cpy #$40	; cover rune1 as well (text services)
-	bne @crune
+	bne crune
 	; remaining runes are all stubs
-@outer:	ldx #10
-@dum:	lda #$20	; it's a JSR so we can capture the vector addr
+outer:	ldx #10
+dum:	lda #$20	; it's a JSR so we can capture the vector addr
 	sta (ptmp),y
 	iny
 	lda #<shockload
@@ -105,17 +104,17 @@ NDIRBLKS = 4
 	sta (ptmp),y
 	iny
 	dex
-	bne @dum
+	bne dum
 	lda #$EA	; nop
 	sta (ptmp),y
 	iny
 	sta (ptmp),y
 	iny
-	bne @outer	; 10 vec * 3 bytes + 2 nops = 32; 32*8 runes = 256
+	bne outer	; 10 vec * 3 bytes + 2 nops = 32; 32*8 runes = 256
 	inc ptmp+1
 	lda ptmp+1
 	cmp #$E
-	bne @outer
+	bne outer
 	; reset the rune allocation page; start with kernelend .. $2000
 	lda #>kernelend
 	sta nextrunepg
@@ -133,14 +132,14 @@ NDIRBLKS = 4
 	pla		; retadr lo
 	sec
 	sbc #2		; back to start of jump vec
-	sta @jgo+1	; modifies code below
+	sta jgo+1	; modifies code below
 	and #$E0	; 00, 20, 40, etc.
-	sta @rvec+1	; ptr to start of rune vecs, for later
+	sta rvec+1	; ptr to start of rune vecs, for later
 	tay		; save temporarily
 	pla
 	sbc #0
-	sta @jgo+2	; modifies code below
-	sta @rvec+2	; ptr hi for start of rune vecs, for later
+	sta jgo+2	; modifies code below
+	sta rvec+2	; ptr hi for start of rune vecs, for later
 	sta tmp
 	tya		; get ret lo back
 	ldx #5		; div 32 (shift right 5)
@@ -160,11 +159,11 @@ NDIRBLKS = 4
 	pha		; save blk num on stk
 	txa
 	pha
-	sty @ldnpg+1	; modify code - # pages
+	sty ldnpg+1	; modify code - # pages
 	; allocate memory for the rune code
-	jsr @runealloc	; allocate Y pages, result pg in X
-	stx @ldtpg+1	; modify code - target page
-	stx @cpvec+2	; mod code below for vector copy later
+	jsr runealloc	; allocate Y pages, result pg in X
+	stx ldtpg+1	; modify code - target page
+	stx cpvec+2	; mod code below for vector copy later
 	; read the rune
 	txa
 	tay		; target page now in Y
@@ -174,26 +173,26 @@ NDIRBLKS = 4
 	jsr _readblks	; read in the rune code
 	; process the code relocation
 	lda #$20	; rune code is always org $2000
-@ldtpg:	ldx #$11	; target page, self-mod above
-@ldnpg:	ldy #$22	; number of pages, self-mod above
+ldtpg:	ldx #$11	; target page, self-mod above
+ldnpg:	ldy #$22	; number of pages, self-mod above
 	jsr reloc
 	; copy the rune's vectors to their place in the table
 	ldx #$1F
-@cpvec:	lda $1100,x	; self-modified above
-@rvec:	sta $C00,x	; self-modified earlier
+cpvec:	lda $1100,x	; self-modified above
+rvec:	sta $C00,x	; self-modified earlier
 	dex
-	bpl @cpvec
+	bpl cpvec
 	; finally, execute the original rune call
 	lda asav
 	ldx xsav
 	ldy ysav
-@jgo:	jmp $1122	; self-mod above
+jgo:	jmp $1122	; self-mod above
 
 ; allocate Y pages for rune space, result pg in X
 ; guarantees safety of reading by block until the next
 ; allocation - while it doesn't allocate double-pages, 
 ; it ensures it could have.
-@runealloc:
+runealloc:
 	tya			; page count
 	clc			; round up to full blks for scan
 	adc #1
@@ -201,27 +200,27 @@ NDIRBLKS = 4
 	sta zarg		; save blk count for later
 	asl
 	sta tmp
-@loop:	lda limitrunepg
+loop:	lda limitrunepg
 	sec
 	sbc nextrunepg		; calculate how many remain in this area
 	cmp tmp
-	bcc @next
+	bcc next
 	ldx nextrunepg		; save page to allocate
 	tya			; get back real # pages
 	clc
 	adc nextrunepg		; bump up the next rune pg
 	sta nextrunepg
 	rts
-@next:	lda limitrunepg
+next:	lda limitrunepg
 	cmp #$20
-	bne @out
+	bne out
 	; Exhausted the space up to $2000; switch to $A000.BFFF
 	lda #$A0
 	sta nextrunepg
 	lda #$C0
 	sta limitrunepg
-	bne @loop		; always taken
-@out:	fatal "out of rune space"
+	bne loop		; always taken
+out:	fatal "out of rune space"
 .endproc
 
 ;*****************************************************************************
@@ -241,14 +240,14 @@ NDIRBLKS = 4
 	sec
 	sbc nextprogpg		; calculate how many remain in this area
 	cmp tmp
-	bcc @out
+	bcc out
 	ldx nextprogpg		; save page to allocate
 	tya			; get back real # pages
 	clc
 	adc nextprogpg		; bump up the next prog pg
 	sta nextprogpg
 	rts
-@out:	fatal "out of rune space"
+out:	fatal "out of rune space"
 .endproc
 
 ;*****************************************************************************
@@ -258,72 +257,72 @@ NDIRBLKS = 4
 ;	zarg - will get passed to program in A/X
 ; Out:	if found: clc, X=exit code
 ;	else: sec and X=$FF
-	sta @fname
-	stx @fname+1
+	sta fname
+	stx fname+1
 	lda zarg	; save argument for later
-	sta @arg
+	sta arg
 	lda zarg+1
-	sta @arg+1
+	sta arg+1
 	lda #DIRSCAN_BIN ; start with bin, then down to cwd
-@dir:	sta @dirnum
-@chk:	lda @fname
-	ldx @fname+1
-	ldy @dirnum
+dir:	sta dirnum
+chk:	lda fname
+	ldx fname+1
+	ldy dirnum
 	jsr _dirscan
-	sta @fndblk	; keep found block # and page ct
-	stx @fndblk+1
+	sta fndblk	; keep found block # and page ct
+	stx fndblk+1
 	sty zarg	; page count for load
-	bcc @found
-	lda @dirnum
+	bcc found
+	lda dirnum
 	sec
 	sbc #DIRSCAN_BIN-DIRSCAN_CWD
 	cmp #DIRSCAN_CWD
-	beq @dir
+	beq dir
 	sec		; error
 	ldx #$FF
 	rts
-@found:	; allocate
+found:	; allocate
 	lda nextprogpg	; save allocation point
 	pha
 	tya
 	pha		; save # pages for later relocator call
 	jsr _progalloc	; allocate memory for the program (Y pages)
 	; read
-	stx @pjmp+2	; vector for calling the program later
+	stx pjmp+2	; vector for calling the program later
 	txa		; resulting page #
 	tay		; to Y for load
-	lda @fndblk
-	ldx @fndblk+1
+	lda fndblk
+	ldx fndblk+1
 	jsr _readblks	; read in the program
 	; relocate
 	pla		; get page ct back
 	tay
 	lda #$10	; programs always org at $1000
-	ldx @pjmp+2
+	ldx pjmp+2
 	jsr reloc	; perform relocation
 	; run
-	lda @arg	; arg saved from earlier
-	ldx @arg+1
-	jsr @pjmp	; run the program
+	lda arg	; arg saved from earlier
+	ldx arg+1
+	jsr pjmp	; run the program
 	; free
 	pla
 	sta nextprogpg	; pop the allocation mark (frees prog mem)
 	; done (exit code still in X)
 	clc
 	rts
-@pjmp:	jmp $1100	 ; self-mod above
+pjmp:	jmp $1100	 ; self-mod above
 ; vars
 	bit $1111
-@fname	= *-2
+fname	= *-2
 
 	bit $11
-@dirnum	= *-1
+dirnum	= *-1
 
 	bit $1111
-@fndblk	= *-2
+fndblk	= *-2
 
 	bit $1111
-@arg	= *-2
+arg	= *-2
 .endproc
 
 ;*****************************************************************************
@@ -341,12 +340,12 @@ _readblk:
 ;	Y - target page
 ;	zarg - number of blocks
 ; Out:	aborts on failure; no need to check result.
-@cmd     = $42
-@unit    = $43
-@bufptr  = $44
-@blknum  = $46
-	sta @ld1+1	; mod code below
-	stx @ld2+1	; mod code below
+cmd     = $42
+unit    = $43
+bufptr  = $44
+blknum  = $46
+	sta ld1+1	; mod code below
+	stx ld2+1	; mod code below
 	; save contents of $42-47 on stack
 	ldx #0
 :	lda $42,x
@@ -356,25 +355,25 @@ _readblk:
 	bne :-
 	; set up parameters
 	lda #1		; read
-	sta @cmd
+	sta cmd
 	lda hddunit
-	sta @unit
+	sta unit
 	lda #0
-	sta @bufptr
-	sty @bufptr+1	; target page still in Y
-@ld1:	lda #$11	; self-modified above
-	sta @blknum
-@ld2:	lda #$22	; self-modified above
-	sta @blknum+1
-@lup:	jsr callhdd
+	sta bufptr
+	sty bufptr+1	; target page still in Y
+ld1:	lda #$11	; self-modified above
+	sta blknum
+ld2:	lda #$22	; self-modified above
+	sta blknum+1
+lup:	jsr callhdd
 	bcc_or_die "hdd read fail"
-	inc @blknum
+	inc blknum
 	bne :+
-	inc @blknum+1
-:	inc @bufptr+1
-	inc @bufptr+1
+	inc blknum+1
+:	inc bufptr+1
+	inc bufptr+1
 	dec zarg	; more blocks?
-	bne @lup	; read more
+	bne lup	; read more
 	; restore $42-47 from stack
 	ldx #5
 :	pla
@@ -391,11 +390,11 @@ callhdd: jmp $CF0A	; self-modified by startup
 ; Out: none (aborts on fail)
 .proc readdirblk
 	cmp curdirblk
-	bne @go
+	bne go
 	cpx curdirblk+1
-	bne @go
+	bne go
 	rts
-@go:	ldy #>dirbuf
+go:	ldy #>dirbuf
 	sta curdirblk	; cache for next time
 	stx curdirblk+1
 	jmp _readblk
@@ -559,12 +558,12 @@ _gotoxy:
 	plp
 	ror		; C -> $80; clears carry
 	dex
-	bmi @got
+	bmi got
 	adc #$28
 	dex
-	bmi @got
+	bmi got
 	adc #$28
-@got:	sta txtptre
+got:	sta txtptre
 	sta txtptro
 	pla		; A = row//2
 	and #3
@@ -587,10 +586,10 @@ _getxy:
 ; Doesn't modify cursx
 	ldy cursx
 	lda #$A0
-@lup:	sta (txtptre),y
+lup:	sta (txtptre),y
 	iny
 	cpy #40
-	bne @lup
+	bne lup
 	rts
 .endproc
 
@@ -598,14 +597,14 @@ _getxy:
 .proc _clrscr
 ; Clear entire screen
 ; leaves with cursx=0, cursy=0
-	jsr @zero
-@loop:	jsr _clreol
+	jsr zero
+loop:	jsr _clreol
 	inc cursy
 	jsr bascalc
 	lda cursy
 	cmp #24
-	bne @loop
-@zero:	ldx #0
+	bne loop
+zero:	ldx #0
 	ldy #0
 	jmp _gotoxy
 .endproc
@@ -654,26 +653,26 @@ _crout:	stx xsav
 	inc cursy
 	lda cursy
 	cmp #24
-	beq @scrl
+	beq scrl
 	jsr bascalc
 	jmp restregs
 	; end of screen - scroll it up
-@scrl:	ldy #0
+scrl:	ldy #0
 	jsr _gotoxy	; x is already zero
-@sc1:	lda txtptre
-	sta @st+1	; modifies code below
+sc1:	lda txtptre
+	sta st+1	; modifies code below
 	lda txtptre+1
-	sta @st+2
+	sta st+2
 	inc cursy
 	jsr bascalc
 	ldy #39
-@cp:	lda (txtptre),y
-@st:	sta $1111,y	; self-modified above
+cp:	lda (txtptre),y
+st:	sta $1111,y	; self-modified above
 	dey
-	bpl @cp
+	bpl cp
 	lda cursy
 	cmp #23
-	bne @sc1
+	bne sc1
 	jsr _clreol
 	jmp restregs
 .endproc
@@ -687,17 +686,17 @@ _crout:	stx xsav
 	lsr
 	lsr
 	lsr
-	jsr @prdig
+	jsr prdig
 	pla
 	and #$F
-	jsr @prdig
+	jsr prdig
 	pla
 	rts
-@prdig:	cmp #$A
-	bcs @letr
+prdig:	cmp #$A
+	bcs letr
 	adc #'0'
 	jmp cout
-@letr:	clc
+letr:	clc
 	adc #'A'-$A
 	jmp cout
 .endproc
@@ -706,31 +705,31 @@ _crout:	stx xsav
 .proc _rdkey
 ; In: 	(none)
 ; Out:	A - the key pressed (in lo-bit ascii)
-	jsr @inv	; display cursor
+	jsr inv	; display cursor
 :	lda $C000
 	bpl :-
 	and #$7F
 	bit a3flg
-	bpl @got
+	bpl got
 	; On Apple ///, convert to lower-case unless shift
 	cmp #'A'
-	bcc @got
+	bcc got
 	cmp #'Z'+1
-	bcs @got
+	bcs got
 	pha
 	lda $C008
 	lsr
 	lsr		; get bit 2 = shift key
 	pla
-	bcs @got	; if shifted, leave char as-is
+	bcs got	; if shifted, leave char as-is
 	clc
 	adc #'a'-'A'	; if not shifted, convert to lower-case
-@got:	bit $C010	; clear keyboard strobe
+got:	bit $C010	; clear keyboard strobe
 	pha
-	jsr @inv	; erase cursor
+	jsr inv	; erase cursor
 	pla
 	rts
-@inv:	ldy cursx
+inv:	ldy cursx
 	lda (txtptre),y
 	eor #$80
 	sta (txtptre),y
@@ -744,77 +743,77 @@ _crout:	stx xsav
 ;	A=src page
 ;	X=dst/current page
 ;	Y=num pages
-@srcpage = tmp
-@dstpage = tmp+1
-@npages = tmp2
-@pscan = ptmp
-	sta @srcpage
-	stx @dstpage
-	stx @pscan+1
-	sty @npages
+srcpage = tmp
+dstpage = tmp+1
+npages = tmp2
+pscan = ptmp
+	sta srcpage
+	stx dstpage
+	stx pscan+1
+	sty npages
 	lda #0
-	sta @pscan
+	sta pscan
 	tay		; Y is normally zero
-@inst:	lda (@pscan),y	; read next instruction
-	beq @sbrk	; special case for brk
+inst:	lda (pscan),y	; read next instruction
+	beq sbrk	; special case for brk
 	tax
 	lda inslen_t,x
 	cmp #3
-	beq @len3
+	beq len3
 	; len < 3, so carry is now clear
-@adv:	;clc		; carry is already clear when we arrive here
-	adc @pscan
-	sta @pscan
-	bcc @inst
-	inc @pscan+1
-	lda @pscan+1
+adv:	;clc		; carry is already clear when we arrive here
+	adc pscan
+	sta pscan
+	bcc inst
+	inc pscan+1
+	lda pscan+1
 	sec
-	sbc @dstpage
-	cmp @npages
-	bcc @inst
-@stop:	rts
+	sbc dstpage
+	cmp npages
+	bcc inst
+stop:	rts
 
-@len3:	;sec		; fyi we got here via beq, so carry is already set
+len3:	;sec		; fyi we got here via beq, so carry is already set
 	ldy #2
-	lda (@pscan),y	; high byte of operand
-	sbc @srcpage	; find page offset; carry already set
-	bcc @skip	; before range? skip
-	cmp @npages	; after range? skip
-	bcs @skip
+	lda (pscan),y	; high byte of operand
+	sbc srcpage	; find page offset; carry already set
+	bcc skip	; before range? skip
+	cmp npages	; after range? skip
+	bcs skip
 	; carry is now clear
-	adc @dstpage	; adjust for new location
-	sta (@pscan),y	; and store it
-@skip:	lda #3		; back to 3-byte len
+	adc dstpage	; adjust for new location
+	sta (pscan),y	; and store it
+skip:	lda #3		; back to 3-byte len
 	ldy #0		; normal state again
 	clc
-	bcc @adv	; always taken
+	bcc adv	; always taken
 
-@sbrk:	iny
-	lda (@pscan),y	; check 1st byte of str
-	beq @bbrk	; if zero, it's a normal brk (or maybe start-of-data)
+sbrk:	iny
+	lda (pscan),y	; check 1st byte of str
+	beq bbrk	; if zero, it's a normal brk (or maybe start-of-data)
 	cmp #$20
-	bcc @lpfx	; if < $20, it's length-prefixed
-@chkz:	iny
-	lda (@pscan),y
-	bne @chkz	; scan for zero-terminator
+	bcc lpfx	; if < $20, it's length-prefixed
+chkz:	iny
+	lda (pscan),y
+	bne chkz	; scan for zero-terminator
 	iny		; and one past for next ins
 	tya		; now we have the len
 	ldy #0
 	clc
-	bcc @adv	; always taken
+	bcc adv	; always taken
 
-@lpfx:	sec
+lpfx:	sec
 	adc #2		; brk + len + bytes; always clears carry since len < $20
 	ldy #0		; normal mode
-	bcc @adv	; always taken
+	bcc adv	; always taken
 
-@bbrk:	iny
-	lda (@pscan),y	; one more byte
-	beq @stop	; 3 zeros in a row --> stop relocation, data section begun
+bbrk:	iny
+	lda (pscan),y	; one more byte
+	beq stop	; 3 zeros in a row --> stop relocation, data section begun
 	ldy #0
 	lda #2
 	clc
-	bcc @adv	; otherwise, a real 2-byte brk (always taken)
+	bcc adv	; otherwise, a real 2-byte brk (always taken)
 .endproc
 
 ;*****************************************************************************
@@ -995,12 +994,12 @@ done:	jsr _crout
 ;*****************************************************************************
 .proc gosysmon
 	bit a3flg
-	bpl @a2
-@a3:	lda cursy
+	bpl a2
+a3:	lda cursy
 	sta $5D
 	jsr $FBC7	; a3 bascalc
 	jmp a3mon
-@a2:	ldx cursy
+a2:	ldx cursy
 	dex
 	dex
 	stx $25
