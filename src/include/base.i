@@ -8,8 +8,10 @@ tmp3	= $C
 zarg	= $E
 
 ; Kernel-specific zero-page
-txtptre	= $F2
-txtptro	= $F4
+txtptre	= $FC
+txtptro	= $FE
+; bcd zero-page
+bcd_ptr = $EE
 
 ;*****************************************************************************
 ; Rune 0 (kernel) vectors
@@ -34,10 +36,18 @@ crout		= $C20+(3*3)
 prbyte		= $C20+(4*3)
 rdkey		= $C20+(5*3)
 getxy		= $C20+(6*3)
+;*****************************************************************************
+; Rune 2 (font) vectors
+font_loaddefault = $C40+(0*3)
+;*****************************************************************************
+; Rune 3 (bcd) vectors
+bcd_len		= $C60+(0*3)
+bcd_fromstr	= $C60+(1*3)
+  bcd_fromstr_arg0 = bcd_ptr
 
 ;*****************************************************************************
 ; String macros
-.feature string_escapes	; mostly so "\n" works in strings
+.feature string_escapes	; so that "\n" works in strings
 
 .macro	print	str
 	.byte 0, str, 0
@@ -70,9 +80,11 @@ getxy		= $C20+(6*3)
 .MACPACK longbranch
 
 ;*****************************************************************************
-; Long branch macros (e.g. jeq)
+; Word-based macros
 .macro  ldax arg
-.if (.match (.left (1, {arg}), #))
+.if (.match ({arg}, ax))
+	; already in ax - no-op
+.elseif (.match (.left (1, {arg}), #))
 	; immediate mode
 	lda #<(.right (.tcount ({arg})-1, {arg}))
 	ldx #>(.right (.tcount ({arg})-1, {arg}))
@@ -88,6 +100,18 @@ getxy		= $C20+(6*3)
 	stx 1+(arg)
 .endmacro
 
+.macro	phax
+	pha
+	txa
+	pha
+.endmacro
+
+.macro  plax
+	pla
+	tax
+	pla
+.endmacro
+
 .macro	incw arg
 .local	skip
 	inc arg
@@ -95,3 +119,54 @@ getxy		= $C20+(6*3)
 	inc 1+(arg)
 skip:
 .endmacro
+
+; Move one 16-bit to another. May scramble Y. Preserves AX
+.macro	mov src, dst
+.if (.match({src}, ax))
+	; AX -> dst
+	stax dst
+.elseif (.match({dst}, ax))
+	; src -> AX
+	ldax src
+.elseif (.match(.left(1, {src}), #))
+	; immediate mode # -> dst
+	ldy #<(.right(.tcount({src})-1, {src}))
+	sty dst
+	ldy #>(.right(.tcount({src})-1, {src}))
+	sty 1+(dst)
+.else
+	; abs or zp -> dst
+	ldy src
+	sty dst
+	ldy 1+(src)
+	sty 1+(dst)
+.endif
+.endmacro
+
+; Call a function with 0-3 args.
+; The right-most arg (i.e. last) will be in AX; the rest will be in {func}_arg0, {func}_arg1, etc.
+; Does not support variadic functions.
+; Functions place the return value (if any) in AX.
+.macro call func, arg0, arg1, arg2
+.if .paramcount >= 5
+	.error "No support yet for calling func with more than 3 params"
+.elseif .paramcount = 4
+    arg0dst = .ident(.concat(.string(func), "_arg0"))
+    arg1dst = .ident(.concat(.string(func), "_arg1"))
+	mov arg0, arg0dst
+	mov arg1, arg1dst
+	ldax arg2
+.elseif .paramcount = 3
+    arg0dst = .ident(.concat(.string(func), "_arg0"))
+	mov arg0, arg0dst
+	ldax arg1
+.elseif .paramcount = 2
+	ldax arg0
+.endif
+	jsr func
+.endmacro
+
+;*****************************************************************************
+; Markers for self-modded code
+modaddr	= $1111
+modn	= $11
