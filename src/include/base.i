@@ -51,13 +51,11 @@ bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
 .feature string_escapes	; so that "\n" works in strings
 
 .macro	print	str
-	.byte 0, str, 0
+	.byte 0, $CB, str, 0
 .endmacro
 
-; note! ldstr can only handle len 1-31, and I couldn't figure out how to
-; get ca65 to enforce it
 .macro	ldstr	str
-	.byte 0, .strlen(str), str
+	.byte 0, $DB, str, 0
 .endmacro
 
 .macro	fatal	str
@@ -89,6 +87,10 @@ bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
 	; immediate mode
 	lda #<(.right(.tcount({arg})-1, {arg}))
 	ldx #>(.right(.tcount({arg})-1, {arg}))
+.elseif (.match (.left(1, {arg}), &))
+	bit .right(.tcount({arg})-1, {arg})
+	lda *-2
+	ldx *-4
 .else
 	; abs or zp
 	lda arg

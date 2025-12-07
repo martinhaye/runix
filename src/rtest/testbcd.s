@@ -12,6 +12,12 @@ test_fromstr:
 
 	; Test 1: Simple number "123"
 	print "Test 1: '123' -> "
+
+	ldstr "123"
+	stax bcd_fromstr_arg0
+	ldax &bcd_result
+	jsr bcd_fromstr
+
 	;call bcd_fromstr, "123", &bcd_result
 	;call bcd_debug, &bcd_result
 	jsr crout

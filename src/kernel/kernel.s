@@ -51,14 +51,16 @@ NDIRBLKS = 4
 	print "Welcome to Runix 0.1\n"
 	jsr _resetrunes
 	; find the "runes" subdir
-	ldstr "runes"
+	lda #<s_runes
+	ldx #>s_runes
 	ldy #DIRSCAN_ROOT
 	jsr _dirscan
 	bcc_or_die "no runes dir"
 	sta runesdirblk
 	stx runesdirblk+1
 	; Also find the "bin" subdir
-	ldstr "bin"
+	lda #<s_bin
+	ldx #>s_bin
 	ldy #DIRSCAN_ROOT
 	jsr _dirscan
 	bcc_or_die "no bin dir"
@@ -71,9 +73,11 @@ NDIRBLKS = 4
 :	; Now run the shell
 	ldx #$20	; start allocating program space at $2000
 	stx nextprogpg
-	ldstr "shell"
+	brk
+	lda #<s_shell
+	ldx #>s_shell
 	jsr _progrun
-	qfatal
+	fatal "shell not found"
 .endproc
 
 ;*****************************************************************************
@@ -831,42 +835,53 @@ a2brk:	; put things back the way native brk would be
 	pla
 	pha		; leave preg on stack
 	and #$10
-	beq @irq	; for now, do nothing on real IRQ
+	beq irq	; for now, do nothing on real IRQ
 	tsx
 	lda $102,x	; ret addr lo byte
 	sec
 	sbc #1		; back to 1st byte after brk
-	sta @ld1+1	; mod self below
-	sta @ld2+1
+	sta ld1+1	; mod self below
+	sta ld2+1
+	sta ld3+1
 	tay		; save for later
 	lda $103,x	; ret addr hi byte
 	sbc #0
-	sta @ld1+2	; mod self below
-	sta @ld2+2
+	sta ld1+2	; mod self below
+	sta ld2+2
+	sta ld3+2
 	tax		; save for later
-@ld1:	lda $1111	; first byte
+ld1:	lda $1111	; first byte
+	cmp #$CB	; invalid 6502 instruc - WAI on 65816
+	beq prnt
+	cmp #$DB	; invalid 6502 instruc - STP on 65816
+	beq ldst
+	jmp bkpnt	; BRK+other means actual breakpoint
+ldst:	iny		; point to first byte of the str
 	bne :+
-	jmp @bkpnt	; BRK+00 means actual breakpoint
-:	cmp #$20
-	bcs @print	; >= $20 means to print zero-terminated string
-	sty areg	; len-prefixed str - put its ptr in A/X (loaded on ret)
+	inx
+:	sty areg	; load str - put its ptr in A/X (loaded on ret)
 	stx xreg
-	bcc @adv	; always taken
-@print:	ldx #0		; X - index in string
+	ldx #1
+ld2:	lda $1111,x
+	beq adv
+	inx
+	bne ld2		; always taken
+prnt:	ldx #1		; X - index in string
 	ldy #0		; Y - percent mode (1=on)
-@scanz:	cpy #0
-	bne @pct
+	beq ld3		; always taken
+scanz:	cpy #0
+	bne pct
 	cmp #'%'
-	bne @dopr
+	bne dopr
 	iny		; set percent mode
-	bne @next	; always taken
-@dopr:	jsr _cout	; print char
-@next:	inx
-@ld2:	lda $1111,x	; find terminator
-	bne @scanz
-	txa
-@adv:	tsx
+	bne next	; always taken
+dopr:	jsr _cout	; print char
+next:	inx
+ld3:	lda $1111,x	; find terminator
+	bne scanz
+adv:	txa
 	clc		; no need to add 1, since brk already did it
+	tsx
 	adc $102,x	; ret adr lo
 	sta $102,x
 	bcc :+
@@ -874,50 +889,50 @@ a2brk:	; put things back the way native brk would be
 :	lda areg
 	ldx xreg
 	ldy yreg
-@irq:	rti
-@pct:	dey		; turn off percent mode
+irq:	rti
+pct:	dey		; turn off percent mode
 	cmp #'s'
-	beq @pstr
+	beq pstr
 	cmp #'x'
-	bne @dopr
-@phex:	lda #'$'
+	bne dopr
+phex:	lda #'$'
 	jsr cout
 	lda xreg
 	jsr prbyte
 	lda areg
 	jsr prbyte
-	jmp @next
-@pstr:	lda areg
-	sta @psl1+1
-	sta @psl2+1
-	sta @psl3+1
+	jmp next
+pstr:	lda areg
+	sta psl1+1
+	sta psl2+1
+	sta psl3+1
 	lda xreg
-	sta @psl1+2
-	sta @psl2+2
-	sta @psl3+2
+	sta psl1+2
+	sta psl2+2
+	sta psl3+2
 	ldy #0
-@psl1:	lda $1111,y	; self-mod above
+psl1:	lda $1111,y	; self-mod above
 	cmp #32
-	bcc @plen
-@pzt:	iny
-@psl2:	lda $1111,y	; self-mod above
-	beq @psdn
+	bcc plen
+pzt:	iny
+psl2:	lda $1111,y	; self-mod above
+	beq psdn
 	jsr cout
-	jmp @pzt
-@psdn:	jmp @next
-@plen:	pha
-@pslp:	pla
-	beq @psdn
+	jmp pzt
+psdn:	jmp next
+plen:	pha
+pslp:	pla
+	beq psdn
 	sec
 	sbc #1
 	pha
 	iny
-@psl3:	lda $1111,y	; self-mod above
+psl3:	lda $1111,y	; self-mod above
 	jsr cout
-	jmp @pslp
+	jmp pslp
 
 ; breakpoint (BRK+00) - print location and registers
-@bkpnt:	jsr _crout	; always start on next new line
+bkpnt:	jsr _crout	; always start on next new line
 	pla		; p reg
 	tay		; save it aside
 	pla		; PC lo
@@ -934,25 +949,25 @@ a2brk:	; put things back the way native brk would be
 	; print all registers
 	ldx areg
 	lda #'A'
-	jsr @preg
+	jsr preg
 	ldx xreg
 	lda #'X'
-	jsr @preg
+	jsr preg
 	ldx yreg
 	lda #'Y'
-	jsr @preg
+	jsr preg
 	tya		; get back p-reg val, saved all the way up there
 	tax
 	lda #'P'
-	jsr @preg
+	jsr preg
 	tsx		; happily we've popped everything, so this is the real caller S reg
 	lda #'S'
-	jsr @preg
+	jsr preg
 	jsr _crout
 	; jump to platform-specific system monitor for now
 	jmp gosysmon
 
-@preg:	jsr _cout
+preg:	jsr _cout
 	lda #'='
 	jsr _cout
 	txa
@@ -968,15 +983,12 @@ a2brk:	; put things back the way native brk would be
 	jsr _crout	; always start on next fresh line
 	print "Fatal error: "
 	ldy #0
-	lda (ptmp),y	; str len
-	tax
-	iny
-@lup:	lda (ptmp),y
+lup:	lda (ptmp),y
+	beq done
 	jsr _cout
 	iny
-	dex
-	bne @lup
-	jsr _crout
+	bne lup		; always taken
+done:	jsr _crout
 	jmp gosysmon
 .endproc
 
@@ -1035,6 +1047,10 @@ dirent_blknum:	.word 0
 dirent_nblks:	.byte 0
 
 runefn:		.byte 2, "00" ; length + 2 digits
+
+s_runes:	.byte 5, "runes"
+s_bin:		.byte 3, "bin"
+s_shell:	.byte 5, "shell"
 
 ;*****************************************************************************
 	.align 32
