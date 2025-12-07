@@ -63,3 +63,55 @@ done:	lda #$FF	; always end with terminator
 store2:	sta modaddr,x
 	rts
 .endproc
+
+;*****************************************************************************
+.proc _bcd_print
+ptr	= bcd_ptr1
+	stax ptr
+	ldy #0
+	; find terminator
+fterm:	lda (ptr),y
+	iny
+	cmp #$FF
+	bne fterm
+	dey
+	dey
+	ldx #0		; char count, for initial-zero suppression
+prlup:	lda (ptr),y
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr dopr
+	pla
+	and #$F
+	jsr dopr
+	dey
+	bpl prlup
+	rts
+dopr:	bne notz
+	txa
+	beq skip
+notz:	ora #$30
+	jsr cout
+	inx
+skip:	rts
+.endproc
+
+;*****************************************************************************
+.proc _bcd_debug
+ptr	= bcd_ptr1
+	stax ptr
+	ldy #0
+fterm:	lda (ptr),y
+	iny
+	pha
+	jsr prbyte
+	lda #'.'
+	jsr cout
+	pla
+	cmp #$FF
+	bne fterm
+	rts
+.endproc

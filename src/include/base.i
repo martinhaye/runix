@@ -11,7 +11,8 @@ zarg	= $E
 txtptre	= $FC
 txtptro	= $FE
 ; bcd zero-page
-bcd_ptr = $EE
+bcd_ptr1 = $EC
+bcd_ptr2 = $EE
 
 ;*****************************************************************************
 ; Rune 0 (kernel) vectors
@@ -42,8 +43,8 @@ font_loaddefault = $C40+(0*3)
 ;*****************************************************************************
 ; Rune 3 (bcd) vectors
 bcd_len		= $C60+(0*3)
-bcd_fromstr	= $C60+(1*3)
-  bcd_fromstr_arg0 = bcd_ptr
+bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
+  bcd_fromstr_arg0 = bcd_ptr1
 
 ;*****************************************************************************
 ; String macros
