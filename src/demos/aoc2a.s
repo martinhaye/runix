@@ -100,7 +100,6 @@ match:	inc nmatch
 	lda #sum
 	ldx #0
 	print "sum: %s\n"
-	jsr rdkey
 adv:	jsr halve
 	jsr incr
 	jsr double
@@ -151,7 +150,11 @@ done:	php	; preserve P while popping A from stack
 .proc halve
 	lda current
 	lsr
-	sta current
+	bne :+
+	lda #'0'
+	sta current+1
+	lda #1
+:	sta current
 	rts
 .endproc
 
