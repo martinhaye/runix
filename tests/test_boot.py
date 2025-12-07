@@ -6,7 +6,7 @@ import pytest
 
 def test_runix_boots(pim65):
     """Test that Runix boots successfully."""
-    result = pim65.run_boot_test(max_instructions=100000)
+    result = pim65.run_boot_test(max_instructions=10000)
 
     # We expect it to hit the instruction limit (not an error)
     # because it's waiting for input at the shell prompt
@@ -16,7 +16,7 @@ def test_runix_boots(pim65):
 
 def test_welcome_message(pim65):
     """Test that Runix displays the welcome message."""
-    result = pim65.run_boot_test(max_instructions=100000)
+    result = pim65.run_boot_test(max_instructions=10000)
 
     screen = result["screen_output"]
     assert "Welcome to Runix" in screen, "Should display welcome message"
@@ -24,7 +24,7 @@ def test_welcome_message(pim65):
 
 def test_shell_prompt(pim65):
     """Test that Runix displays the shell prompt."""
-    result = pim65.run_boot_test(max_instructions=100000)
+    result = pim65.run_boot_test(max_instructions=10000)
 
     screen = result["screen_output"]
     assert "#" in screen, "Should display shell prompt (#)"
@@ -33,7 +33,7 @@ def test_shell_prompt(pim65):
 def test_boot_completes_quickly(pim65):
     """Test that boot completes within reasonable instruction count."""
     # Boot should complete well before 100K instructions
-    result = pim65.run_boot_test(max_instructions=100000)
+    result = pim65.run_boot_test(max_instructions=10000)
 
     # If we got screen output, boot succeeded
     screen = result["screen_output"]

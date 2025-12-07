@@ -44,9 +44,14 @@ class Pim65Runner:
         self.bootstub = bootstub
         self.test_dir = TEST_DIR
 
-    def run_boot_test(self, max_instructions=100000, timeout=2):
+    def run_boot_test(self, command_line=None, max_instructions=100000, timeout=2):
         """
         Run a boot test using the bootstub.
+
+        Args:
+            command_line: Optional command line to inject at shell prompt
+            max_instructions: Max instructions to execute
+            timeout: Timeout in seconds
 
         Returns:
             dict with keys: returncode, stdout, stderr, screen_output
@@ -62,15 +67,21 @@ class Pim65Runner:
             json.dump(test_config, f)
 
         try:
+            cmd = [
+                "python3", "-m", "pim65",
+                str(config_path),
+                "--disk", self.disk_image,
+                "--screen",
+                "-n", str(max_instructions),
+                "-t"
+            ]
+
+            # Add command line input if provided
+            if command_line is not None:
+                cmd.extend(["--keys", command_line])
+
             result = subprocess.run(
-                [
-                    "python3", "-m", "pim65",
-                    str(config_path),
-                    "--disk", self.disk_image,
-                    "--screen",
-                    "-n", str(max_instructions),
-                    "-t"
-                ],
+                cmd,
                 cwd=self.test_dir,
                 capture_output=True,
                 text=True,
