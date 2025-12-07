@@ -1,4 +1,0 @@
-{
-    "binaries": [{"file": "bootstub.bin", "load_addr": "0x1000"}],
-    "start_addr": "0x1000"
-}
