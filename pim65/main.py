@@ -148,12 +148,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.verbose or args.trace:
         print(f"Instructions executed: {sim.instruction_count}")
 
-    # Dump screen if requested
+    # Dump screen if requested - always to stderr for consistency
     if args.screen:
         screen = sim.dump_screen()
         if screen:
-            print("Screen:")
-            print(screen)
+            print("\nScreen:", file=sys.stderr)
+            print(screen, file=sys.stderr)
 
     sim.cleanup()
 
