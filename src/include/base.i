@@ -84,12 +84,12 @@ bcd_fromstr	= $C60+(1*3)
 .macro  ldax arg
 .if (.match ({arg}, ax))
 	; already in ax - no-op
-.elseif (.match (.left (1, {arg}), #))
+.elseif (.match (.left(1, {arg}), #))
 	; immediate mode
-	lda #<(.right (.tcount ({arg})-1, {arg}))
-	ldx #>(.right (.tcount ({arg})-1, {arg}))
+	lda #<(.right(.tcount({arg})-1, {arg}))
+	ldx #>(.right(.tcount({arg})-1, {arg}))
 .else
-	; assume absolute or zero page
+	; abs or zp
 	lda arg
 	ldx 1+(arg)
 .endif
@@ -112,6 +112,7 @@ bcd_fromstr	= $C60+(1*3)
 	pla
 .endmacro
 
+; 16-bit increment. Scrambles NZ.
 .macro	incw arg
 .local	skip
 	inc arg
@@ -120,9 +121,20 @@ bcd_fromstr	= $C60+(1*3)
 skip:
 .endmacro
 
+; 16-bit decrement. Scrambles A and NZ.
+.macro	decw arg
+.local	skip
+	lda arg
+	bne skip
+	dec 1+(arg)
+skip:	dec arg
+.endmacro
+
 ; Move one 16-bit to another. May scramble Y. Preserves AX
 .macro	mov src, dst
-.if (.match({src}, ax))
+.if (.match({src}, {dst}))
+	; src same as dst - no-op
+.elseif (.match({src}, ax))
 	; AX -> dst
 	stax dst
 .elseif (.match({dst}, ax))
