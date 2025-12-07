@@ -160,6 +160,8 @@ skip:	dec arg
 ; Does not support variadic functions.
 ; Functions place the return value (if any) in AX.
 .macro call func, arg0, arg1, arg2
+.local arg0dst
+.local arg1dst
 .if .paramcount >= 5
 	.error "No support yet for calling func with more than 3 params"
 .elseif .paramcount = 4

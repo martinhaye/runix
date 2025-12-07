@@ -29,6 +29,7 @@ RUNE_SRC = $(wildcard src/runes/*.s)
 SHELL_SRC = src/shell/shell.s
 BIN_SRC = $(wildcard src/bin/*.s)
 DEMO_SRC = $(wildcard src/demos/*.s)
+RTEST_SRC = $(wildcard src/rtest/*.s)
 
 # Font generation
 FONT_TXT = src/runes/base_font.txt
@@ -42,6 +43,7 @@ RUNE_BINS = $(patsubst src/runes/%.s,$(BUILD)/runes/%.bin,$(RUNE_SRC))
 SHELL_BIN = $(BUILD)/shell.bin
 BIN_BINS = $(patsubst src/bin/%.s,$(BUILD)/bin/%.bin,$(BIN_SRC))
 DEMO_BINS = $(patsubst src/demos/%.s,$(BUILD)/demos/%.bin,$(DEMO_SRC))
+RTEST_BINS = $(patsubst src/rtest/%.s,$(BUILD)/rtest/%.bin,$(RTEST_SRC))
 
 # Final disk image
 IMAGE = $(BUILD)/runix.2mg
@@ -52,7 +54,7 @@ all: $(IMAGE)
 
 # Create build directories
 dirs:
-	@mkdir -p $(BUILD)/runes $(BUILD)/bin $(BUILD)/demos
+	@mkdir -p $(BUILD)/runes $(BUILD)/bin $(BUILD)/demos $(BUILD)/rtest
 
 # Font generation rule
 $(FONT_ASM): $(FONT_TXT) $(FONT_SCRIPT)
@@ -84,12 +86,15 @@ $(BUILD)/bin/%.o: src/bin/%.s $(BASE_INC) | dirs
 $(BUILD)/demos/%.o: src/demos/%.s $(BASE_INC) | dirs
 	$(CA65) $(CA65FLAGS) -o $@ $<
 
+$(BUILD)/rtest/%.o: src/rtest/%.s $(BASE_INC) | dirs
+	$(CA65) $(CA65FLAGS) -o $@ $<
+
 # Linking rule: .o -> .bin (works for all paths)
 %.bin: %.o $(LDCFG)
 	$(LINK)
 
 # Build the disk image
-$(IMAGE): $(BOOT_BIN) $(KERNEL_BIN) $(RUNE_BINS) $(SHELL_BIN) $(BIN_BINS) $(DEMO_BINS)
+$(IMAGE): $(BOOT_BIN) $(KERNEL_BIN) $(RUNE_BINS) $(SHELL_BIN) $(BIN_BINS) $(DEMO_BINS) $(RTEST_BINS)
 	$(PYTHON) $(MKIMG) $(BUILD) $(IMAGE)
 
 # Deploy to disk server (can be run manually)

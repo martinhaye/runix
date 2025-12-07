@@ -5,11 +5,12 @@ mkrunix.py - Build a Runix .2mg disk image
 Creates a 32MB ProDOS-ordered disk image with the Runix filesystem:
 - Block 0: Boot block
 - Blocks 1-4: Root directory
-- Block 5+: Kernel, subdirectories (runes, bin, demos), and their contents
+- Block 5+: Kernel, subdirectories (runes, bin, demos, rtest), and their contents
   - /runix (kernel)
   - /runes/ (subdirectory containing rune files)
   - /bin/ (subdirectory containing shell and utilities)
   - /demos/ (subdirectory containing demo programs)
+  - /rtest/ (subdirectory containing rune test programs)
 """
 
 import sys
@@ -116,7 +117,7 @@ def build_filesystem(build_dir, output_path):
         next_free_block = write_file_to_image(image, kernel_block, kernel_data)
         root_entries.append(create_dir_entry('runix', kernel_block, pages_needed(kernel_data)))
 
-    # 3. Reserve space for subdirectories (runes, bin, demos)
+    # 3. Reserve space for subdirectories (runes, bin, demos, rtest)
     runes_dir_block = next_free_block
     next_free_block += BLOCKS_PER_DIR
     root_entries.append(create_dir_entry('runes', runes_dir_block, 0xF8))  # 0xF8 = directory
@@ -128,6 +129,10 @@ def build_filesystem(build_dir, output_path):
     demos_dir_block = next_free_block
     next_free_block += BLOCKS_PER_DIR
     root_entries.append(create_dir_entry('demos', demos_dir_block, 0xF8))
+
+    rtest_dir_block = next_free_block
+    next_free_block += BLOCKS_PER_DIR
+    root_entries.append(create_dir_entry('rtest', rtest_dir_block, 0xF8))
 
     # 4. Build runes subdirectory entries
     runes_entries = []
@@ -177,31 +182,49 @@ def build_filesystem(build_dir, output_path):
             demo_name = demo_file.stem
             demos_entries.append(create_dir_entry(demo_name, demo_block, pages_needed(demo_data)))
 
-    # 7. Write root directory (blocks 1-4)
+    # 7. Build rtest subdirectory entries
+    rtest_entries = []
+    rtest_dir = Path(build_dir) / 'rtest'
+    if rtest_dir.exists():
+        rtest_files = sorted(rtest_dir.glob('*.bin'))
+        for rtest_file in rtest_files:
+            rtest_data = read_binary(rtest_file)
+            rtest_block = next_free_block
+            next_free_block = write_file_to_image(image, rtest_block, rtest_data)
+            rtest_name = rtest_file.stem
+            rtest_entries.append(create_dir_entry(rtest_name, rtest_block, pages_needed(rtest_data)))
+
+    # 8. Write root directory (blocks 1-4)
     root_dir = write_directory_entries(root_entries)
     # First 2 bytes: next free block pointer
     root_dir[0:2] = struct.pack('<H', next_free_block)
     write_block(image, ROOT_DIR_BLOCK, root_dir)
 
-    # 8. Write runes subdirectory
+    # 9. Write runes subdirectory
     runes_dir_data = write_directory_entries(runes_entries)
     # First 2 bytes: parent directory block (points to root)
     runes_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
     write_block(image, runes_dir_block, runes_dir_data)
 
-    # 9. Write bin subdirectory
+    # 10. Write bin subdirectory
     bin_dir_data = write_directory_entries(bin_entries)
     # First 2 bytes: parent directory block (points to root)
     bin_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
     write_block(image, bin_dir_block, bin_dir_data)
 
-    # 10. Write demos subdirectory
+    # 11. Write demos subdirectory
     demos_dir_data = write_directory_entries(demos_entries)
     # First 2 bytes: parent directory block (points to root)
     demos_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
     write_block(image, demos_dir_block, demos_dir_data)
 
-    # 11. Create .2mg header and write image
+    # 12. Write rtest subdirectory
+    rtest_dir_data = write_directory_entries(rtest_entries)
+    # First 2 bytes: parent directory block (points to root)
+    rtest_dir_data[0:2] = struct.pack('<H', ROOT_DIR_BLOCK)
+    write_block(image, rtest_dir_block, rtest_dir_data)
+
+    # 13. Create .2mg header and write image
     write_2mg(image, output_path)
 
     print(f"Created {output_path}")
@@ -211,6 +234,7 @@ def build_filesystem(build_dir, output_path):
     print(f"  Rune entries: {len(runes_entries)}")
     print(f"  Bin entries: {len(bin_entries)}")
     print(f"  Demo entries: {len(demos_entries)}")
+    print(f"  Rtest entries: {len(rtest_entries)}")
 
 def write_2mg(payload, output_path):
     """Write a .2mg disk image with proper header."""
