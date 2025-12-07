@@ -64,3 +64,34 @@ getxy		= $C20+(6*3)
 	brk
 	.byte 0
 .endmacro
+
+;*****************************************************************************
+; Long branch macros (e.g. jeq)
+.MACPACK longbranch
+
+;*****************************************************************************
+; Long branch macros (e.g. jeq)
+.macro  ldax arg
+.if (.match (.left (1, {arg}), #))
+	; immediate mode
+	lda #<(.right (.tcount ({arg})-1, {arg}))
+	ldx #>(.right (.tcount ({arg})-1, {arg}))
+.else
+	; assume absolute or zero page
+	lda arg
+	ldx 1+(arg)
+.endif
+.endmacro
+
+.macro  stax arg
+	sta arg
+	stx 1+(arg)
+.endmacro
+
+.macro	incw arg
+.local	skip
+	inc arg
+	bne skip
+	inc 1+(arg)
+skip:
+.endmacro

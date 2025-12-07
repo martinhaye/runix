@@ -36,8 +36,7 @@ first:	ldy #0
 	ldx #lower
 	jsr getnum
 	pha
-	lda #lower
-	ldx #0
+	ldax #lower
 	print "----------\n"
 	print "lower=%s\n"
 	pla
@@ -50,8 +49,7 @@ first:	ldy #0
 	ldx #upper
 	jsr getnum
 	pha
-	lda #upper
-	ldx #0
+	ldax #upper
 	print "upper=%s\n"
 	pla
 
@@ -93,12 +91,10 @@ match:	inc nmatch
 	bne :+
 	inc nmatch+1
 :
-	lda #current
-	ldx #0
+	ldax #current
 	print "match: %s ... "
 	jsr accum
-	lda #sum
-	ldx #0
+	ldax #sum
 	print "sum: %s\n"
 adv:	jsr halve
 	jsr incr
@@ -113,11 +109,9 @@ adv:	jsr halve
 ok:	jmp check
 gonx:	jmp first
 
-finish:	lda nmatch
-	ldx nmatch+1
+finish:	ldax nmatch
 	print "nmatch=%x\n"
-	lda #sum
-	ldx #0
+	ldax #sum
 	print "final sum=%s\n"
 	rts
 
