@@ -80,8 +80,7 @@ even:
 	jsr halve
 	jsr double
 
-check:	print "chk\n"
-	ldx #current
+check:	ldx #current
 	ldy #lower
 	jsr compare
 	beq oklo
@@ -96,24 +95,15 @@ match:	inc nmatch
 :
 	lda #current
 	ldx #0
-	print "match: %s\n"
+	print "match: %s ... "
 	jsr accum
 	lda #sum
 	ldx #0
 	print "sum: %s\n"
 	jsr rdkey
 adv:	jsr halve
-	lda #current
-	ldx #0
-	print "halved='%s'\n"
 	jsr incr
-	lda #current
-	ldx #0
-	print "incr'd='%s'\n"
 	jsr double
-	lda #current
-	ldx #0
-	print "doubld='%s'\n"
 
 	ldx #current
 	ldy #upper
@@ -219,7 +209,11 @@ st:	sta 0,y
 .proc accum
 	; adjust sum so it has current digits plus 1
 adj:	lda current
-	cmp sum
+	clc
+	adc #2
+	sec
+	sbc sum
+	beq noadj
 	bcc noadj
 	ldx #sum
 	jsr ripple
@@ -228,7 +222,12 @@ noadj:	; now add
 	ldx current
 	ldy sum
 	clc
-lup:	lda current,x
+lup:	php
+	lda current,x
+	cpx #1
+	bpl :+
+	lda #'0'
+:	plp
 	and #$F
 	adc sum,y
 	cmp #'9'+1
@@ -237,12 +236,9 @@ lup:	lda current,x
 	sbc #10
 	sec
 nocar:	sta sum,y
-	dey
 	dex
+	dey
 	bne lup
-	lda sum,y
-	adc #0
-	sta sum,y
 	rts
 .endproc
 
@@ -277,7 +273,15 @@ sub:	sbc #11		; self-mod above; calculate length
 
 	.align 256
 data:
-	.byt "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,"
-	.byt "1698522-1698528,446443-446449,38593856-38593862,565653-565659,"
-	.byt "824824821-824824827,2121212118-2121212124"
+	; .byt "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,"
+	; .byt "1698522-1698528,446443-446449,38593856-38593862,565653-565659,"
+	; .byt "824824821-824824827,2121212118-2121212124"
+	; .byt 0
+
+	.byt "10327-17387,74025-113072,79725385-79874177,964628-1052240,148-297,"
+	.byt "3-16,126979-227778,1601-2998,784-1207,831289-917268,55603410-55624466,"
+	.byt "317-692,602197-750430,17-32,38-58,362012-455626,3622441-3647505,"
+	.byt "883848601-883920224,62-105,766880-804855,9184965756-9185005415,"
+	.byt "490073-570277,2929273115-2929318135,23251-48475,9696863768-9697013088,"
+	.byt "229453-357173,29283366-29304416,4526-8370,3095-4389,4400617-4493438"
 	.byt 0
