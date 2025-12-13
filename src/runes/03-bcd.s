@@ -9,6 +9,7 @@
 	jmp _bcd_len
 	jmp _bcd_fromstr
 	jmp _bcd_debug
+	jmp _bcd_print
 	.align 32,$EA
 
 ;*****************************************************************************

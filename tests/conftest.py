@@ -80,6 +80,9 @@ class Pim65Runner:
             if command_line is not None:
                 cmd.extend(["--keys", command_line])
 
+            import sys
+            sys.stderr.write(f"{cmd=}\n")
+
             result = subprocess.run(
                 cmd,
                 cwd=self.test_dir,
@@ -108,7 +111,8 @@ class Pim65Runner:
         finally:
             # Clean up temp config
             if config_path.exists():
-                config_path.unlink()
+               config_path.unlink()
+            pass
 
     def run_custom_test(self, binary_path, load_addr="0x2000",
                        start_addr=None, max_instructions=100000, timeout=2):
