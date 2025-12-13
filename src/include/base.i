@@ -92,8 +92,8 @@ bcd_print	= $C60+(3*3)
 .elseif (.match (.left(1, {arg}), &))
 	; address mode
 	lda #<(.right(.tcount({arg})-1, {arg}))
-	bit .right(.tcount({arg})-1, {arg})
-	ldx *-1
+	cld	; special marker to get relocator's attention
+	ldx #>(.right(.tcount({arg})-1, {arg}))
 .else
 	; abs or zp
 	lda arg

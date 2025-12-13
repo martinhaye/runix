@@ -757,7 +757,9 @@ pscan = ptmp
 inst:	lda (pscan),y	; read next instruction
 	beq sbrk	; special case for brk
 	tax
-	lda inslen_t,x
+	cmp #$D8	; check for CLD which marks upcoming LDA/LDX/LDY of a page #
+	beq iscld
+notcld:	lda inslen_t,x
 	cmp #3
 	beq len3
 	; len < 3, so carry is now clear
@@ -772,6 +774,14 @@ adv:	;clc		; carry is already clear when we arrive here
 	cmp npages
 	bcc inst
 stop:	rts
+
+iscld:	iny		; got CLD
+	lda (pscan),y	; check next byte
+	dey
+	and #$F0	; is it A0, A2, A9 (LDY, LDX, LDA)?
+	cmp #$A0	; roughly is good enough
+	bne notcld	; if not, treat as normal 1-byte inst
+	; otherwise, treat as 3-byte and check for reloc
 
 len3:	;sec		; fyi we got here via beq, so carry is already set
 	ldy #2
