@@ -790,9 +790,10 @@ skip:	lda #3		; back to 3-byte len
 
 sbrk:	iny
 	lda (pscan),y	; check 1st byte of str
-	beq bbrk	; if zero, it's a normal brk (or maybe start-of-data)
-	cmp #$20
-	bcc lpfx	; if < $20, it's length-prefixed
+	cmp #$CB
+	beq chkz
+	cmp #$DB
+	bne bbrk	; if not CB or DB, it's a normal brk
 chkz:	iny
 	lda (pscan),y
 	bne chkz	; scan for zero-terminator
@@ -802,18 +803,13 @@ chkz:	iny
 	clc
 	bcc adv	; always taken
 
-lpfx:	sec
-	adc #2		; brk + len + bytes; always clears carry since len < $20
-	ldy #0		; normal mode
-	bcc adv	; always taken
-
 bbrk:	iny
 	lda (pscan),y	; one more byte
 	beq stop	; 3 zeros in a row --> stop relocation, data section begun
 	ldy #0
-	lda #2
+	lda #1
 	clc
-	bcc adv	; otherwise, a real 2-byte brk (always taken)
+	bcc adv	; otherwise, a real brk (always taken)
 .endproc
 
 ;*****************************************************************************

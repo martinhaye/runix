@@ -45,6 +45,7 @@ font_loaddefault = $C40+(0*3)
 bcd_len		= $C60+(0*3)
 bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
   bcd_fromstr_arg0 = bcd_ptr1
+bcd_debug	= $C60+(2*3)
 
 ;*****************************************************************************
 ; String macros
@@ -88,9 +89,10 @@ bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
 	lda #<(.right(.tcount({arg})-1, {arg}))
 	ldx #>(.right(.tcount({arg})-1, {arg}))
 .elseif (.match (.left(1, {arg}), &))
+	; address mode
+	lda #<(.right(.tcount({arg})-1, {arg}))
 	bit .right(.tcount({arg})-1, {arg})
-	lda *-2
-	ldx *-4
+	ldx *-1
 .else
 	; abs or zp
 	lda arg
@@ -135,9 +137,10 @@ skip:	dec arg
 
 ; Move one 16-bit to another. May scramble Y. Preserves AX
 .macro	mov src, dst
-.if (.match({src}, {dst}))
-	; src same as dst - no-op
-.elseif (.match({src}, ax))
+;.if (.match({src}, ax) .and .match({dst}, ax))
+;	; src same as dst - no-op
+;	nop
+.if (.match({src}, ax))
 	; AX -> dst
 	stax dst
 .elseif (.match({dst}, ax))

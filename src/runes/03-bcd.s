@@ -8,6 +8,7 @@
 	; API jump vectors
 	jmp _bcd_len
 	jmp _bcd_fromstr
+	jmp _bcd_debug
 	.align 32,$EA
 
 ;*****************************************************************************
@@ -30,9 +31,9 @@ fin:	txa
 
 ;*****************************************************************************
 .proc _bcd_fromstr
-pstr	= bcd_fromstr_arg0
-	stax store1+1
-	stax store2+1
+pstr	= bcd_ptr1
+pnum	= bcd_ptr2
+	stax pnum
 	; scan for valid digits
 	lda #$F0
 	pha		; sentinel
@@ -47,7 +48,8 @@ scan:	lda (pstr),y
 	iny
 	bne scan	; always taken
 	; digits are now on the stack, and we can pop least-to-most sig
-proc:	pla
+proc:	ldy #0		; Y - dest byte pos
+procl:	pla
 	bmi done	; if sentinel encountered on lo, exit is easy
 	sta orlo+1	; mod self
 	pla
@@ -56,11 +58,11 @@ proc:	pla
 	asl
 	asl		; A - high-order digit, C - sentinel bit
 orlo:	ora #modn
-store1:	sta modaddr,x
-	inx
-	bcc proc	; process until sentinel reached
+store1:	sta (pnum),y
+	iny
+	bcc procl	; process until sentinel reached
 done:	lda #$FF	; always end with terminator
-store2:	sta modaddr,x
+store2:	sta (pnum),y
 	rts
 .endproc
 

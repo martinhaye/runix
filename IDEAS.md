@@ -23,7 +23,7 @@ Print
   lda #1
   ldx #2
   PRINT "Foo %x"   ; prints "Foo $201"
-  ; encoding: `00 46 6F 6F 20 35 78 00`
+  ; encoding: `00 CB 46 6F 6F 20 35 78 00`
 ```
 
 The string is allowed to contain _one_ printf-style code from this list:
@@ -38,8 +38,8 @@ The string is allowed to contain _one_ printf-style code from this list:
 Load
 
 ```
-  LDSTR "Foobar"  ; points A/X to 6-byte len prefixed string "Foobar"
-  ; encoding: `00 06 46 6F 6F 62 61 72`
+  LDSTR "Foobar"  ; points A/X to zero-terminated string "Foobar"
+  ; encoding: `00 DB 46 6F 6F 62 61 72 00`
 ```
 
 ## Filesystem
