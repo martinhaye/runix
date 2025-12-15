@@ -13,6 +13,15 @@ def test_bcd(pim65):
         timeout=2
     )
 
+    # Debug output - show all results on failure
+    print("\n=== TEST RESULTS ===")
+    print(f"Return code: {result['returncode']}")
+    print(f"\n=== STDOUT ===\n{result['stdout']}")
+    print(f"\n=== FULL STDERR ===")
+    print(result['stderr'])
+    print(f"\n=== SCREEN OUTPUT ===\n{result['screen_output']}")
+    print("=== END TEST RESULTS ===\n")
+
     screen = result["screen_output"]
     assert re.search(r'Test 1:.*23.01.FF', screen)
     assert re.search(r'Test 2:.*-> 123', screen)

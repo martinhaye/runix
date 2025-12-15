@@ -122,6 +122,11 @@ def main(argv: list[str] | None = None) -> int:
             print("\nTrace (last 20 instructions):", file=sys.stderr)
             for line in sim.get_trace()[-20:]:
                 print(f"  {line}", file=sys.stderr)
+        if args.screen:
+            screen = sim.dump_screen()
+            if screen:
+                print("\nScreen:", file=sys.stderr)
+                print(screen, file=sys.stderr)
         sim.cleanup()
         return 1
     except RuntimeError as e:

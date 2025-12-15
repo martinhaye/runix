@@ -99,11 +99,19 @@ class Pim65Runner:
                 if in_screen:
                     screen_lines.append(line)
 
+            screen_output = '\n'.join(screen_lines).strip()
+
+            # If pim65 failed and there's no screen output, add diagnostic info
+            if result.returncode != 0 and not screen_output:
+                screen_output = f"[pim65 exited with code {result.returncode}, no screen output captured]\n"
+                screen_output += "Error details from stderr:\n"
+                screen_output += result.stderr
+
             return {
                 "returncode": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "screen_output": '\n'.join(screen_lines).strip()
+                "screen_output": screen_output
             }
         finally:
             # Clean up temp config
@@ -165,11 +173,19 @@ class Pim65Runner:
                 if in_screen:
                     screen_lines.append(line)
 
+            screen_output = '\n'.join(screen_lines).strip()
+
+            # If pim65 failed and there's no screen output, add diagnostic info
+            if result.returncode != 0 and not screen_output:
+                screen_output = f"[pim65 exited with code {result.returncode}, no screen output captured]\n"
+                screen_output += "Error details from stderr:\n"
+                screen_output += result.stderr
+
             return {
                 "returncode": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "screen_output": '\n'.join(screen_lines).strip()
+                "screen_output": screen_output
             }
         finally:
             # Clean up temp config
