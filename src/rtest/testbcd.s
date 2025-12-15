@@ -31,6 +31,22 @@ test_fromstr:
 	call bcd_print, &bcd_result
 	jsr crout
 
+	; Test 4: simple increment
+	print "Test 4: inc 123 -> "
+	ldstr "123"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_inc, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; Test 5: complex increment
+	print "Test 5: inc 99 -> "
+	ldstr "99"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_inc, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
 	print "\nAll tests complete.\n"
 	jmp $FFF9
 

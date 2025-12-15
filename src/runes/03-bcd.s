@@ -10,6 +10,7 @@
 	jmp _bcd_fromstr
 	jmp _bcd_debug
 	jmp _bcd_print
+	jmp _bcd_inc
 	.align 32,$EA
 
 ;*****************************************************************************
@@ -116,5 +117,51 @@ fterm:	lda (ptr),y
 	pla
 	cmp #$FF
 	bne fterm
+	rts
+.endproc
+
+;*****************************************************************************
+.proc _bcd_inc
+pnum	= bcd_ptr1
+	stax pnum
+	ldy #0
+lup:	lda (pnum),y
+	pha
+	pha
+	tya
+	jsr prbyte
+	pla
+	jsr prbyte
+	pla
+
+	cmp #$FF
+	beq ext
+
+	clc
+	sed		; so fun to actually use 6502's decimal mode
+	adc #1
+	cld		; gotta clear decimal mode for normal use
+
+	php
+	pha
+	jsr prbyte
+	jsr crout
+	pla
+	plp
+
+	sta (pnum),y
+	iny
+	bcs lup
+	lda #'a'
+	jsr cout
+	rts
+ext:	lda #1
+	sta (pnum),y
+	iny
+	lda #$FF
+	sta (pnum),y
+	lda #'b'
+	jsr cout
+	brk
 	rts
 .endproc
