@@ -80,9 +80,6 @@ class Pim65Runner:
             if command_line is not None:
                 cmd.extend(["--keys", command_line])
 
-            import sys
-            sys.stderr.write(f"{cmd=}\n")
-
             result = subprocess.run(
                 cmd,
                 cwd=self.test_dir,

@@ -11,6 +11,7 @@
 	jmp _bcd_debug
 	jmp _bcd_print
 	jmp _bcd_inc
+	jmp _bcd_cmp
 	.align 32,$EA
 
 ;*****************************************************************************
@@ -164,4 +165,41 @@ ext:	lda #1
 	jsr cout
 	brk
 	rts
+.endproc
+
+;*****************************************************************************
+.proc _bcd_cmp
+pnum1	= bcd_ptr1
+pnum2	= bcd_ptr2
+	stax pnum2
+	; scan for the end of one or both numbers
+	ldy #0
+lup:	lda (pnum1),y
+	cmp #$FF
+	beq end1
+	lda (pnum2),y
+	cmp #$FF
+	beq end2
+	iny
+	bne lup		; always taken
+end1:	lda (pnum2),y
+	cmp #$FF
+	beq eqlen
+	; num1 is shorter than num2; so num1 < num2
+	lda #$80	; negative and not equal
+	clc		; less than
+	rts
+end2:	; num2 is shorter than num1; so num1 > num2
+	lda #1		; positive and not equal
+	sec		; greater than (or equal)
+	rts
+	; numbers are the same length; start comparing, MSB to LSB order
+eqlen:	dey
+	bmi equal	; if we reach the end of both nums, they must be equal
+	lda (pnum1),y
+	cmp (pnum2),y
+	beq eqlen	; if this part is equal, keep checking
+equal:	lda #0		; zero and equal
+	sec		; greater than or equal
+	rts		; once we find an inequality, we're done
 .endproc

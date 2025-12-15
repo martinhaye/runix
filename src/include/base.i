@@ -48,6 +48,8 @@ bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
 bcd_debug	= $C60+(2*3)
 bcd_print	= $C60+(3*3)
 bcd_inc		= $C60+(4*3)
+bcd_cmp		= $C60+(5*3)
+  bcd_cmp_arg0	= bcd_ptr1
 
 ;*****************************************************************************
 ; String macros
