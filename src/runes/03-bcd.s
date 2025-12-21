@@ -166,20 +166,22 @@ end1:	lda (pnum2),y
 	cmp #$FF
 	beq eqlen
 	; num1 is shorter than num2; so num1 < num2
-	lda #$80	; negative and not equal
+islt:	lda #$FF	; negative and not equal
 	clc		; less than
 	rts
 end2:	; num2 is shorter than num1; so num1 > num2
-	lda #1		; positive and not equal
+isgt:	lda #1		; positive and not equal
 	sec		; greater than (or equal)
 	rts
 	; numbers are the same length; start comparing, MSB to LSB order
 eqlen:	dey
-	bmi equal	; if we reach the end of both nums, they must be equal
+	bmi iseq	; if we reach the end of both nums, they must be equal
 	lda (pnum1),y
 	cmp (pnum2),y
 	beq eqlen	; if this part is equal, keep checking
-equal:	lda #0		; zero and equal
+	bcs isgt	; otherwise, it's either greater or less
+	bcc islt
+iseq:	lda #0		; zero and equal
 	sec		; greater than or equal
 	rts		; once we find an inequality, we're done
 .endproc

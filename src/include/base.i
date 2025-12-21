@@ -86,7 +86,7 @@ bcd_cmp		= $C60+(5*3)
 ;*****************************************************************************
 ; Word-based macros
 .macro  ldax arg
-.if (.match ({arg}, ax))
+.if (.match ({arg}, {ax}))
 	; already in ax - no-op
 .elseif (.match (.left(1, {arg}), #))
 	; immediate mode
@@ -141,19 +141,23 @@ skip:	dec arg
 
 ; Move one 16-bit to another. May scramble Y. Preserves AX
 .macro	mov src, dst
-;.if (.match({src}, ax) .and .match({dst}, ax))
-;	; src same as dst - no-op
-;	nop
-.if (.match({src}, ax))
+.if (.match({src}, {ax}))
 	; AX -> dst
 	stax dst
-.elseif (.match({dst}, ax))
+.elseif (.xmatch({dst}, {ax}))
 	; src -> AX
 	ldax src
 .elseif (.match(.left(1, {src}), #))
 	; immediate mode # -> dst
 	ldy #<(.right(.tcount({src})-1, {src}))
 	sty dst
+	ldy #>(.right(.tcount({src})-1, {src}))
+	sty 1+(dst)
+.elseif (.match(.left(1, {src}), &))
+	; address mode & -> dst
+	ldy #<(.right(.tcount({src})-1, {src}))
+	sty dst
+	cld	; special marker for relocator
 	ldy #>(.right(.tcount({src})-1, {src}))
 	sty 1+(dst)
 .else
