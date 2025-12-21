@@ -96,7 +96,7 @@ prlup:	lda (ptr),y
 	bpl prlup
 	rts
 dopr:	bne notz
-	txa
+	cpx #0
 	beq skip
 notz:	ora #$30
 	jsr cout
@@ -127,14 +127,6 @@ pnum	= bcd_ptr1
 	stax pnum
 	ldy #0
 lup:	lda (pnum),y
-	pha
-	pha
-	tya
-	jsr prbyte
-	pla
-	jsr prbyte
-	pla
-
 	cmp #$FF
 	beq ext
 
@@ -143,27 +135,15 @@ lup:	lda (pnum),y
 	adc #1
 	cld		; gotta clear decimal mode for normal use
 
-	php
-	pha
-	jsr prbyte
-	jsr crout
-	pla
-	plp
-
 	sta (pnum),y
 	iny
 	bcs lup
-	lda #'a'
-	jsr cout
 	rts
 ext:	lda #1
 	sta (pnum),y
 	iny
 	lda #$FF
 	sta (pnum),y
-	lda #'b'
-	jsr cout
-	brk
 	rts
 .endproc
 
