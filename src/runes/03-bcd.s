@@ -12,6 +12,7 @@
 	jmp _bcd_print
 	jmp _bcd_inc
 	jmp _bcd_cmp
+	jmp _bcd_add
 	.align 32,$EA
 
 ;*****************************************************************************
@@ -184,4 +185,49 @@ eqlen:	dey
 iseq:	lda #0		; zero and equal
 	sec		; greater than or equal
 	rts		; once we find an inequality, we're done
+.endproc
+
+;*****************************************************************************
+.proc _bcd_add
+pnum1	= bcd_ptr1
+pnum2	= bcd_ptr2
+	stax pnum2
+	ldy #0
+	clc
+	sed
+lup:	lda (pnum1),y
+	sta ad1+1	; modify self below
+	eor #$FF
+	beq end1
+	lda (pnum2),y
+	eor #$FF
+	beq end2
+do1:	eor #$FF
+ad1:	adc #modn	; self-modified above
+	sta (pnum1),y
+	iny
+	bne lup		; always taken
+
+end1:	lda (pnum2),y
+	eor #$FF
+	beq fin
+	eor #$FF
+	adc #0
+	sta (pnum1),y
+	iny
+	bcs end1
+fin:	lda #$FF
+	sta (pnum1),y
+	cld
+	rts
+
+end2:	lda (pnum1),y
+	eor #$FF
+	beq fin
+	eor #$FF
+	adc #0
+	sta (pnum1),y
+	iny
+	bcs end2
+	bcc fin		; always taken
 .endproc

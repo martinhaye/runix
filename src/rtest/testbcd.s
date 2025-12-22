@@ -83,6 +83,15 @@ test_fromstr:
 	jsr prbyte
 	jsr crout
 
+	; compare add - same len
+	print "Test 10: 123 + 456 -> "
+	ldstr "123"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "456"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_add, &bcd_num1, &bcd_num2
+	call bcd_print, &bcd_num1
+
 	print "\nAll tests complete.\n"
 	jmp $FFF9
 
