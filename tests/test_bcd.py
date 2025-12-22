@@ -38,4 +38,8 @@ def test_bcd(pim65):
     assert re.search(r'Test 12:.*-> 1000002\b', screen)
     assert re.search(r'Test 13:.*-> 10003\b', screen)
     assert re.search(r'Test 14:.*-> 100004\b', screen)
+    assert re.search(r'Test 15:.*-> 333\b', screen)
+    assert re.search(r'Test 16:.*-> 997\b', screen)
+    assert re.search(r'Test 17:.*-> 9996\b', screen)
+    #assert re.search(r'Test 18:.*-> 9996\b', screen)
 

@@ -140,6 +140,46 @@ test_fromstr:
 	call bcd_print, &bcd_result
 	jsr crout
 
+	; compare sub - same len
+	print "Test 15: 456 - 123 -> "
+	ldstr "456"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "123"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; compare sub - diff len
+	print "Test 16: 1000 - 3 -> "
+	ldstr "1000"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "3"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; compare sub - diff len aligned differently
+	print "Test 17: 10000 - 4 -> "
+	ldstr "10000"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "4"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; compare sub - negative result
+	; print "Test 18: 10 - 11 -> "
+	; ldstr "10"
+	; call bcd_fromstr, ax, &bcd_num1
+	; ldstr "11"
+	; call bcd_fromstr, ax, &bcd_num2
+	; call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
+	; call bcd_print, &bcd_result
+	; jsr crout
+
 	print "\nAll tests complete.\n"
 	jmp $FFF9
 

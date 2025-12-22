@@ -12,6 +12,7 @@
 	jmp _bcd_inc
 	jmp _bcd_cmp
 	jmp _bcd_add
+	jmp _bcd_sub
 	.align 32,$EA
 
 ;*****************************************************************************
@@ -220,4 +221,54 @@ end2:	lda (pnum1),y
 	iny
 	bcs end2
 	bcc fin2	; always taken
+.endproc
+
+;*****************************************************************************
+.proc _bcd_sub
+pnum1	= bcd_ptr1
+pnum2	= bcd_ptr2
+pout	= bcd_ptr3
+	stax pout
+	ldy #0
+	sec
+	sed
+lup:	lda (pnum2),y
+	sta ad1+1	; modify self below
+	eor #$FF
+	beq end2
+	lda (pnum1),y
+	eor #$FF
+	beq end1
+do1:	eor #$FF
+ad1:	sbc #modn	; self-modified above
+	sta (pout),y
+	iny
+	bne lup		; always taken
+
+end1:	lda (pnum2),y
+	eor #$FF
+	beq fin
+	eor #$FF
+	sbc #0
+	sta (pout),y
+	iny
+	bcc end1
+fin:	bcs fin2
+	lda #$99	; error case really - negative result!
+	sta (pout),y
+	iny
+fin2:	lda #$FF
+	sta (pout),y
+	cld
+	rts
+
+end2:	lda (pnum1),y
+	eor #$FF
+	beq fin
+	eor #$FF
+	sbc #0
+	sta (pout),y
+	iny
+	bcc end2
+	bcs fin2	; always taken
 .endproc

@@ -53,6 +53,9 @@ bcd_cmp		= $C60+(4*3)
 bcd_add		= $C60+(5*3)
   bcd_add_arg0	= bcd_ptr1
   bcd_add_arg1	= bcd_ptr2
+bcd_sub		= $C60+(6*3)
+  bcd_sub_arg0	= bcd_ptr1
+  bcd_sub_arg1	= bcd_ptr2
 
 ;*****************************************************************************
 ; String macros
