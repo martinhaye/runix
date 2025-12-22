@@ -17,9 +17,23 @@ test_fromstr:
 	call bcd_debug, &bcd_result
 	jsr crout
 
+	; Parsing negative number
+	print "Test 1b: '-1234' -> "
+	ldstr "-1234"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_debug, &bcd_result
+	jsr crout
+
 	; Printing a number
 	print "Test 2: '123' -> "
 	ldstr "123"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; Printing negative number
+	print "Test 2b: '-123' -> "
+	ldstr "-123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_print, &bcd_result
 	jsr crout

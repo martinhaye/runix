@@ -24,7 +24,9 @@ def test_bcd(pim65):
 
     screen = result["screen_output"]
     assert re.search(r'Test 1:.*00.23.01.FF\b', screen)
+    assert re.search(r'Test 1b:.*80.34.12.FF\b', screen)
     assert re.search(r'Test 2:.*-> 123\b', screen)
+    assert re.search(r'Test 2b:.*-> -123\b', screen)
     assert re.search(r'Test 3:.*-> 123\b', screen)
     assert re.search(r'Test 3b:.*-> 0\b', screen)
     assert re.search(r'Test 4:.*-> 124\b', screen)

@@ -25,6 +25,15 @@ pnum	= bcd_ptr2
 	lda #$F0
 	pha		; sentinel
 	ldy #0		; Y - string pos
+	tya
+	sta (pnum),y
+	lda (pstr),y
+	cmp #'-'
+	bne scan
+	lda #$80
+	sta (pnum),y
+	iny
+	
 scan:	lda (pstr),y
 	sec
 	sbc #'0'
@@ -35,10 +44,7 @@ scan:	lda (pstr),y
 	iny
 	bne scan	; always taken
 	; digits are now on the stack, and we can pop least-to-most sig
-proc:	ldy #0		; Y - dest byte pos
-	lda #0
-	sta (pnum),y	; start with sign - positive for now
-	iny
+proc:	ldy #1		; Y - dest byte pos
 procl:	pla
 	bmi done	; if sentinel encountered on lo, exit is easy
 	sta orlo+1	; mod self
