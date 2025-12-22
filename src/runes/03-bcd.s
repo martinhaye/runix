@@ -279,13 +279,28 @@ pnum2	= bcd_ptr2
 pout	= bcd_ptr3
 	stax pout
 	ldy #0
-lup:
+	lda #0
+	sta (pout),y
+	iny
+	sta (pout),y
+	iny
+	sta (pout),y
+	lda #0
+	sta pos1
+	sta pos2
+	sta outpos
+	jsr mul_step
+	rts
+
+mul_step:
 	; calculate A+B
+	ldy pos1
 	lda (pnum2),y
 	tax
 	lda bcd_to_bin,x
 	sta add1+1		; mod self below
 	sta sub1+1		; mod self below
+	ldy pos2
 	lda (pnum1),y
 	tax
 	lda bcd_to_bin,x
@@ -309,18 +324,29 @@ pos:	tax			; to index table
 	pha
 	lda quarter_squares_high,y
 	sbc quarter_squares_high,x
-	cld			; always gotta remember to turn off decimal mode tho
-	ldy #1
-	sta (pout),y
-	dey
+	tax
 	pla
+	clc
+	ldy outpos
+	adc (pout),y
 	sta (pout),y
 	iny
-	iny
-	lda #$FF
+	txa
+	adc (pout),y
 	sta (pout),y
+	bcc :+
+	iny
+	lda (pout),y
+	adc #0
+	sta (pout),y
+:	cld			; always gotta remember to turn off decimal mode tho
 	rts
 .endproc
+
+	.byte 0,0,0
+pos1:	.byte 0
+pos2:	.byte 0
+outpos:	.byte 0
 
 ; BCD to binary conversion table
 ; Entry at index $XY (where X and Y are BCD digits) contains decimal value XY
