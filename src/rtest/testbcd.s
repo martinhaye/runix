@@ -91,6 +91,47 @@ test_fromstr:
 	call bcd_fromstr, ax, &bcd_num2
 	call bcd_add, &bcd_num1, &bcd_num2
 	call bcd_print, &bcd_num1
+	jsr crout
+
+	; compare add - diff len
+	print "Test 11: 99999 + 3 -> "
+	ldstr "99999"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "3"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_add, &bcd_num1, &bcd_num2
+	call bcd_print, &bcd_num1
+	jsr crout
+
+	; compare add - diff len aligned differently
+	print "Test 12: 999999 + 3 -> "
+	ldstr "999999"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "3"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_add, &bcd_num1, &bcd_num2
+	call bcd_print, &bcd_num1
+	jsr crout
+
+	; compare add - diff len the other direction
+	print "Test 13: 4 + 9999 -> "
+	ldstr "4"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "9999"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_add, &bcd_num1, &bcd_num2
+	call bcd_print, &bcd_num1
+	jsr crout
+
+	; compare add - diff len the other direction
+	print "Test 14: 5 + 99999 -> "
+	ldstr "5"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "99999"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_add, &bcd_num1, &bcd_num2
+	call bcd_print, &bcd_num1
+	jsr crout
 
 	print "\nAll tests complete.\n"
 	jmp $FFF9

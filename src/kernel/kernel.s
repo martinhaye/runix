@@ -834,6 +834,7 @@ a2brk:	; put things back the way native brk would be
 	ldx $46
 	ldy $47
 .proc brkhnd
+	cld
 	sta areg
 	stx xreg
 	sty yreg

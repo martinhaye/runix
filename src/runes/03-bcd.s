@@ -216,7 +216,11 @@ end1:	lda (pnum2),y
 	sta (pnum1),y
 	iny
 	bcs end1
-fin:	lda #$FF
+fin:	bcc fin2
+	lda #1
+	sta (pnum1),y
+	iny
+fin2:	lda #$FF
 	sta (pnum1),y
 	cld
 	rts
@@ -229,5 +233,5 @@ end2:	lda (pnum1),y
 	sta (pnum1),y
 	iny
 	bcs end2
-	bcc fin		; always taken
+	bcc fin2	; always taken
 .endproc
