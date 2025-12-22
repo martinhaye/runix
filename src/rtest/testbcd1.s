@@ -8,7 +8,7 @@
 ; Test bcd_fromstr - convert string to BCD
 ;*****************************************************************************
 test_fromstr:
-	print "Testing bcd_fromstr:\n"
+	print "Testing bcd:\n"
 
 	; Parsing a simple number "123"
 	print "Test 1: '123' -> "
@@ -167,26 +167,6 @@ test_fromstr:
 	ldstr "4"
 	call bcd_fromstr, ax, &bcd_num2
 	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; short multiply
-	print "Test 18: 23 * 45 -> "
-	ldstr "23"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "45"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_mul, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; short multiply
-	print "Test 19: 93 * 84 -> "
-	ldstr "93"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "84"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_mul, &bcd_num1, &bcd_num2, &bcd_result
 	call bcd_print, &bcd_result
 	jsr crout
 

@@ -278,29 +278,66 @@ pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 pout	= bcd_ptr3
 	stax pout
+
+	; calculate the output len = sum of input lengths
+	ldx #0
+	ldy #$FF
+	tya
+clen1:	iny
+	inx
+	cmp (pnum1),y
+	bne clen1
+	ldy #$FF
+clen2:	iny
+	inx
+	cmp (pnum2),y
+	bne clen2
+
+	; clear the output accumulator
 	ldy #0
-	lda #0
-	sta (pout),y
+	tya
+clr:	sta (pout),y
 	iny
+	dex
+	bne clr
+	lda #$FF		; with terminator at the end
 	sta (pout),y
-	iny
-	sta (pout),y
+
+	; start at first byte of num1
 	lda #0
 	sta pos1
-	sta pos2
 	sta outpos
+
+outer:	ldy pos1
+	sty outpos		; tricky
+	lda (pnum1),y
+	cmp #$FF
+	beq fin
+	; mul that byte against all bytes of num2
+	lda #0
+	sta pos2
+inner:	ldy pos2
+	lda (pnum2),y
+	cmp #$FF
+	beq next
 	jsr mul_step
-	rts
+	; next byte of num1
+	inc outpos
+	inc pos2
+	bne inner		; always taken
+next:	inc pos1
+	bne outer
+fin:	jmp norm_out
 
 mul_step:
 	; calculate A+B
-	ldy pos1
+	ldy pos2
 	lda (pnum2),y
 	tax
 	lda bcd_to_bin,x
 	sta add1+1		; mod self below
 	sta sub1+1		; mod self below
-	ldy pos2
+	ldy pos1
 	lda (pnum1),y
 	tax
 	lda bcd_to_bin,x
@@ -341,6 +378,22 @@ pos:	tax			; to index table
 	sta (pout),y
 :	cld			; always gotta remember to turn off decimal mode tho
 	rts
+
+norm_out:
+	ldy #$FF
+	tya
+scan:	iny
+	cmp (pout),y		; scan for the $FF terminator
+	bne scan
+bkup:	dey
+	beq done
+	lda (pout),y		; if non-zero byte, we're done
+	bne done
+	lda #$FF		; shorten
+	sta (pout),y
+	bne bkup		; always taken
+done:	rts
+
 .endproc
 
 	.byte 0,0,0
