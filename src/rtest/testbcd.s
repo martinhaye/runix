@@ -170,15 +170,25 @@ test_fromstr:
 	call bcd_print, &bcd_result
 	jsr crout
 
-	; compare sub - negative result
-	; print "Test 18: 10 - 11 -> "
-	; ldstr "10"
-	; call bcd_fromstr, ax, &bcd_num1
-	; ldstr "11"
-	; call bcd_fromstr, ax, &bcd_num2
-	; call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
-	; call bcd_print, &bcd_result
-	; jsr crout
+	; short multiply
+	print "Test 18: 23 * 45 -> "
+	ldstr "23"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "45"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_mul, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; short multiply
+	print "Test 19: 93 * 84 -> "
+	ldstr "93"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "84"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_mul, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
 
 	print "\nAll tests complete.\n"
 	jmp $FFF9
@@ -186,6 +196,7 @@ test_fromstr:
 ;*****************************************************************************
 ; Data storage
 ;*****************************************************************************
+		.align 256
 bcd_result:	.res 16		; Space for BCD result (FF-terminated)
 bcd_num1:	.res 16
 bcd_num2:	.res 16
