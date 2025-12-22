@@ -36,6 +36,9 @@ scan:	lda (pstr),y
 	bne scan	; always taken
 	; digits are now on the stack, and we can pop least-to-most sig
 proc:	ldy #0		; Y - dest byte pos
+	lda #0
+	sta (pnum),y	; start with sign - positive for now
+	iny
 procl:	pla
 	bmi done	; if sentinel encountered on lo, exit is easy
 	sta orlo+1	; mod self
@@ -58,12 +61,15 @@ store2:	sta (pnum),y
 ptr	= bcd_ptr1
 	stax ptr
 	ldy #0
-	; find terminator
-fterm:	lda (ptr),y
-	iny
-	cmp #$FF
+	lda (ptr),y	; negative flag?
+	bpl :+
+	lda #'-'
+	jsr cout
+:	; find terminator
+	lda #$FF
+fterm:	iny
+	cmp (ptr),y
 	bne fterm
-	dey
 	dey
 	ldx #0		; char count, for initial-zero suppression
 prlup:	lda (ptr),y
@@ -77,7 +83,7 @@ prlup:	lda (ptr),y
 	and #$F
 	jsr dopr
 	dey
-	bpl prlup
+	bne prlup
 	txa
 	bne done
 	lda #'0'
@@ -113,7 +119,7 @@ fterm:	lda (ptr),y
 .proc _bcd_inc
 pnum	= bcd_ptr1
 	stax pnum
-	ldy #0
+	ldy #1
 lup:	lda (pnum),y
 	cmp #$FF
 	beq ext
@@ -141,7 +147,7 @@ pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 	stax pnum2
 	; scan for the end of one or both numbers
-	ldy #0
+	ldy #1
 lup:	lda (pnum1),y
 	cmp #$FF
 	beq end1
@@ -180,7 +186,7 @@ pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 pout	= bcd_ptr3
 	stax pout
-	ldy #0
+	ldy #1
 	clc
 	sed
 lup:	lda (pnum1),y
@@ -230,7 +236,7 @@ pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 pout	= bcd_ptr3
 	stax pout
-	ldy #0
+	ldy #1
 	sec
 	sed
 lup:	lda (pnum2),y
@@ -281,13 +287,13 @@ pout	= bcd_ptr3
 
 	; calculate the output len = sum of input lengths
 	ldx #0
-	ldy #$FF
-	tya
+	ldy #0
+	lda #$FF
 clen1:	iny
 	inx
 	cmp (pnum1),y
 	bne clen1
-	ldy #$FF
+	ldy #0
 clen2:	iny
 	inx
 	cmp (pnum2),y
@@ -295,7 +301,10 @@ clen2:	iny
 
 	; clear the output accumulator
 	ldy #0
-	tya
+	lda #0
+	sta (pout),y		; sign byte - FIXME shouldn't always be positive
+	iny
+	lda #0
 clr:	sta (pout),y
 	iny
 	dex
@@ -304,7 +313,7 @@ clr:	sta (pout),y
 	sta (pout),y
 
 	; start at first byte of num1
-	lda #0
+	lda #1
 	sta pos1
 	sta outpos
 
@@ -314,7 +323,7 @@ outer:	ldy pos1
 	cmp #$FF
 	beq fin
 	; mul that byte against all bytes of num2
-	lda #0
+	lda #1
 	sta pos2
 inner:	ldy pos2
 	lda (pnum2),y
