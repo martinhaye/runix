@@ -3,15 +3,23 @@
 
 import pytest
 import subprocess
-import json
+import sys
 import os
 from pathlib import Path
+from io import StringIO
 
 # Test directory setup
 TEST_DIR = Path(__file__).parent
 REPO_ROOT = TEST_DIR.parent
 BUILD_DIR = REPO_ROOT / "build"
 DISK_IMAGE = BUILD_DIR / "runix.2mg"
+
+# Add pim65 to path for direct import
+sys.path.insert(0, str(REPO_ROOT))
+
+from pim65.config import SimulatorConfig, BinaryConfig
+from pim65.simulator import Simulator
+from pim65.cpu import BrkAbortError, InvalidOpcodeError
 
 
 @pytest.fixture(scope="session")
@@ -37,7 +45,7 @@ def bootstub():
 
 
 class Pim65Runner:
-    """Helper class to run pim65 tests."""
+    """Helper class to run pim65 tests directly (no subprocess)."""
 
     def __init__(self, disk_image, bootstub):
         self.disk_image = disk_image
@@ -51,73 +59,72 @@ class Pim65Runner:
         Args:
             command_line: Optional command line to inject at shell prompt
             max_instructions: Max instructions to execute
-            timeout: Timeout in seconds
+            timeout: Timeout in seconds (ignored in direct mode)
 
         Returns:
             dict with keys: returncode, stdout, stderr, screen_output
         """
-        # Create a temporary test config
-        test_config = {
-            "binaries": [{"file": "bootstub.bin", "load_addr": "0x1000"}],
-            "start_addr": "0x1000"
-        }
+        # Create config directly
+        config = SimulatorConfig(
+            binaries=[BinaryConfig(file=str(self.test_dir / "bootstub.bin"), load_addr=0x1000)],
+            start_addr=0x1000
+        )
 
-        config_path = self.test_dir / "temp_test.json"
-        with open(config_path, "w") as f:
-            json.dump(test_config, f)
+        # Create simulator
+        sim = Simulator(config)
 
+        # Set up hardware
+        if command_line:
+            sim.setup_keyboard([command_line])
+        sim.setup_hard_drive(self.disk_image)
+
+        # Load binaries
         try:
-            cmd = [
-                "python3", "-m", "pim65",
-                str(config_path),
-                "--disk", self.disk_image,
-                "--screen",
-                "-n", str(max_instructions),
-                "-t"
-            ]
-
-            # Add command line input if provided
-            if command_line is not None:
-                cmd.extend(["--keys", command_line])
-
-            result = subprocess.run(
-                cmd,
-                cwd=self.test_dir,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env={**os.environ, "PYTHONPATH": str(REPO_ROOT)}
-            )
-
-            # Parse screen output from stderr
-            screen_lines = []
-            in_screen = False
-            for line in result.stderr.split('\n'):
-                if line.strip() == "Screen:":
-                    in_screen = True
-                    continue
-                if in_screen:
-                    screen_lines.append(line)
-
-            screen_output = '\n'.join(screen_lines).strip()
-
-            # If pim65 failed and there's no screen output, add diagnostic info
-            if result.returncode != 0 and not screen_output:
-                screen_output = f"[pim65 exited with code {result.returncode}, no screen output captured]\n"
-                screen_output += "Error details from stderr:\n"
-                screen_output += result.stderr
-
+            sim.load()
+        except FileNotFoundError as e:
             return {
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "screen_output": screen_output
+                "returncode": 1,
+                "stdout": "",
+                "stderr": f"Error: Binary file not found: {e}",
+                "screen_output": f"Error: Binary file not found: {e}"
             }
+
+        # Capture stderr for trace output
+        old_stderr = sys.stderr
+        stderr_capture = StringIO()
+        sys.stderr = stderr_capture
+
+        # Run simulation
+        returncode = 0
+        try:
+            success = sim.run(
+                max_instructions=max_instructions,
+                trace=False,  # Don't trace by default to speed up tests
+                brk_abort=False
+            )
+            if not success:
+                returncode = 1
+        except (BrkAbortError, InvalidOpcodeError, RuntimeError) as e:
+            returncode = 1
+            stderr_capture.write(f"Error: {e}\n")
         finally:
-            # Clean up temp config
-            if config_path.exists():
-               config_path.unlink()
-            pass
+            # Restore stderr
+            sys.stderr = old_stderr
+
+        # Get screen output
+        screen_output = sim.dump_screen() or ""
+
+        # Cleanup
+        sim.cleanup()
+
+        stderr_text = stderr_capture.getvalue()
+
+        return {
+            "returncode": returncode,
+            "stdout": "",
+            "stderr": stderr_text,
+            "screen_output": screen_output
+        }
 
     def run_custom_test(self, binary_path, load_addr="0x2000",
                        start_addr=None, max_instructions=100000, timeout=2):
@@ -129,7 +136,7 @@ class Pim65Runner:
             load_addr: Memory address to load binary (default 0x2000)
             start_addr: Starting PC (default same as load_addr)
             max_instructions: Max instructions to execute
-            timeout: Timeout in seconds
+            timeout: Timeout in seconds (ignored in direct mode)
 
         Returns:
             dict with keys: returncode, stdout, stderr, screen_output
@@ -137,60 +144,67 @@ class Pim65Runner:
         if start_addr is None:
             start_addr = load_addr
 
-        test_config = {
-            "binaries": [{"file": str(binary_path), "load_addr": load_addr}],
-            "start_addr": start_addr
-        }
+        # Create config directly
+        if isinstance(load_addr, str):
+            load_addr = int(load_addr, 16) if load_addr.startswith("0x") else int(load_addr)
+        if isinstance(start_addr, str):
+            start_addr = int(start_addr, 16) if start_addr.startswith("0x") else int(start_addr)
 
-        config_path = self.test_dir / "temp_test.json"
-        with open(config_path, "w") as f:
-            json.dump(test_config, f)
+        config = SimulatorConfig(
+            binaries=[BinaryConfig(file=str(binary_path), load_addr=load_addr)],
+            start_addr=start_addr
+        )
 
+        # Create simulator
+        sim = Simulator(config)
+        sim.setup_hard_drive(self.disk_image)
+
+        # Load binaries
         try:
-            result = subprocess.run(
-                [
-                    "python3", "-m", "pim65",
-                    str(config_path),
-                    "--disk", self.disk_image,
-                    "--screen",
-                    "-n", str(max_instructions),
-                    "-t"
-                ],
-                cwd=self.test_dir,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env={**os.environ, "PYTHONPATH": str(REPO_ROOT)}
-            )
-
-            # Parse screen output from stderr
-            screen_lines = []
-            in_screen = False
-            for line in result.stderr.split('\n'):
-                if line.strip() == "Screen:":
-                    in_screen = True
-                    continue
-                if in_screen:
-                    screen_lines.append(line)
-
-            screen_output = '\n'.join(screen_lines).strip()
-
-            # If pim65 failed and there's no screen output, add diagnostic info
-            if result.returncode != 0 and not screen_output:
-                screen_output = f"[pim65 exited with code {result.returncode}, no screen output captured]\n"
-                screen_output += "Error details from stderr:\n"
-                screen_output += result.stderr
-
+            sim.load()
+        except FileNotFoundError as e:
             return {
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "screen_output": screen_output
+                "returncode": 1,
+                "stdout": "",
+                "stderr": f"Error: Binary file not found: {e}",
+                "screen_output": f"Error: Binary file not found: {e}"
             }
+
+        # Capture stderr
+        old_stderr = sys.stderr
+        stderr_capture = StringIO()
+        sys.stderr = stderr_capture
+
+        # Run simulation
+        returncode = 0
+        try:
+            success = sim.run(
+                max_instructions=max_instructions,
+                trace=False,
+                brk_abort=False
+            )
+            if not success:
+                returncode = 1
+        except (BrkAbortError, InvalidOpcodeError, RuntimeError) as e:
+            returncode = 1
+            stderr_capture.write(f"Error: {e}\n")
         finally:
-            # Clean up temp config
-            if config_path.exists():
-                config_path.unlink()
+            sys.stderr = old_stderr
+
+        # Get screen output
+        screen_output = sim.dump_screen() or ""
+
+        # Cleanup
+        sim.cleanup()
+
+        stderr_text = stderr_capture.getvalue()
+
+        return {
+            "returncode": returncode,
+            "stdout": "",
+            "stderr": stderr_text,
+            "screen_output": screen_output
+        }
 
 
 @pytest.fixture
