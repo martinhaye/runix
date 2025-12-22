@@ -96,8 +96,8 @@ test_fromstr:
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "456"
 	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2
-	call bcd_print, &bcd_num1
+	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
 	jsr crout
 
 	; compare add - diff len
@@ -106,8 +106,8 @@ test_fromstr:
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "3"
 	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2
-	call bcd_print, &bcd_num1
+	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
 	jsr crout
 
 	; compare add - diff len aligned differently
@@ -116,8 +116,8 @@ test_fromstr:
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "3"
 	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2
-	call bcd_print, &bcd_num1
+	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
 	jsr crout
 
 	; compare add - diff len the other direction
@@ -126,8 +126,8 @@ test_fromstr:
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "9999"
 	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2
-	call bcd_print, &bcd_num1
+	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
 	jsr crout
 
 	; compare add - diff len the other direction
@@ -136,8 +136,8 @@ test_fromstr:
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "99999"
 	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2
-	call bcd_print, &bcd_num1
+	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
+	call bcd_print, &bcd_result
 	jsr crout
 
 	print "\nAll tests complete.\n"

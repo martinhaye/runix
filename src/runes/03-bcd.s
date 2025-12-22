@@ -176,7 +176,8 @@ iseq:	lda #0		; zero and equal
 .proc _bcd_add
 pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
-	stax pnum2
+pout	= bcd_ptr3
+	stax pout
 	ldy #0
 	clc
 	sed
@@ -189,7 +190,7 @@ lup:	lda (pnum1),y
 	beq end2
 do1:	eor #$FF
 ad1:	adc #modn	; self-modified above
-	sta (pnum1),y
+	sta (pout),y
 	iny
 	bne lup		; always taken
 
@@ -198,15 +199,15 @@ end1:	lda (pnum2),y
 	beq fin
 	eor #$FF
 	adc #0
-	sta (pnum1),y
+	sta (pout),y
 	iny
 	bcs end1
 fin:	bcc fin2
 	lda #1
-	sta (pnum1),y
+	sta (pout),y
 	iny
 fin2:	lda #$FF
-	sta (pnum1),y
+	sta (pout),y
 	cld
 	rts
 
@@ -215,7 +216,7 @@ end2:	lda (pnum1),y
 	beq fin
 	eor #$FF
 	adc #0
-	sta (pnum1),y
+	sta (pout),y
 	iny
 	bcs end2
 	bcc fin2	; always taken

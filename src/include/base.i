@@ -11,8 +11,9 @@ zarg	= $E
 txtptre	= $FC
 txtptro	= $FE
 ; bcd zero-page
-bcd_ptr1 = $EC
-bcd_ptr2 = $EE
+bcd_ptr1 = $EA
+bcd_ptr2 = $EC
+bcd_ptr3 = $EE
 
 ;*****************************************************************************
 ; Rune 0 (kernel) vectors
@@ -51,6 +52,7 @@ bcd_cmp		= $C60+(4*3)
   bcd_cmp_arg0	= bcd_ptr1
 bcd_add		= $C60+(5*3)
   bcd_add_arg0	= bcd_ptr1
+  bcd_add_arg1	= bcd_ptr2
 
 ;*****************************************************************************
 ; String macros
