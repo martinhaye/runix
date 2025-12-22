@@ -6,7 +6,6 @@
 .include "base.i"
 
 	; API jump vectors
-	jmp _bcd_len
 	jmp _bcd_fromstr
 	jmp _bcd_debug
 	jmp _bcd_print
@@ -14,24 +13,6 @@
 	jmp _bcd_cmp
 	jmp _bcd_add
 	.align 32,$EA
-
-;*****************************************************************************
-.proc _bcd_len
-	stax ld+1	; mod self
-	ldx #0		; byte offset
-ld:	lda modaddr,x
-	cmp #$FF	; check for end-of-num
-	beq fin
-	tay		; track last non-terminator value
-	inx
-	bne ld		; always taken
-fin:	txa
-	asl		; double # bytes
-	cpy #$80	; sub 1 if last had no hi-ord digit
-	sbc #0
-	ldx #0
-	rts
-.endproc
 
 ;*****************************************************************************
 .proc _bcd_fromstr
@@ -95,7 +76,11 @@ prlup:	lda (ptr),y
 	jsr dopr
 	dey
 	bpl prlup
-	rts
+	txa
+	bne done
+	lda #'0'
+	jsr cout
+done:	rts
 dopr:	bne notz
 	cpx #0
 	beq skip

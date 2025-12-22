@@ -31,6 +31,13 @@ test_fromstr:
 	call bcd_print, &bcd_result
 	jsr crout
 
+	; Printing just zero
+	print "Test 3b: '0' -> "
+	ldstr "0"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
 	; simple increment
 	print "Test 4: inc 123 -> "
 	ldstr "123"

@@ -42,15 +42,14 @@ getxy		= $C20+(6*3)
 font_loaddefault = $C40+(0*3)
 ;*****************************************************************************
 ; Rune 3 (bcd) vectors
-bcd_len		= $C60+(0*3)
-bcd_fromstr	= $C60+(1*3)	; call bcd_fromstr src, dst
+bcd_fromstr	= $C60+(0*3)	; call bcd_fromstr src, dst
   bcd_fromstr_arg0 = bcd_ptr1
-bcd_debug	= $C60+(2*3)
-bcd_print	= $C60+(3*3)
-bcd_inc		= $C60+(4*3)
-bcd_cmp		= $C60+(5*3)
+bcd_debug	= $C60+(1*3)
+bcd_print	= $C60+(2*3)
+bcd_inc		= $C60+(3*3)
+bcd_cmp		= $C60+(4*3)
   bcd_cmp_arg0	= bcd_ptr1
-bcd_add		= $C60+(6*3)
+bcd_add		= $C60+(5*3)
   bcd_add_arg0	= bcd_ptr1
 
 ;*****************************************************************************
