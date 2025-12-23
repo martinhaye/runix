@@ -11,49 +11,49 @@ test_fromstr:
 	print "Testing bcd:\n"
 
 	; Parsing a simple number "123"
-	print "Test 1: '123' -> "
+	print "T1: '123'->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_debug, &bcd_result
 	jsr crout
 
 	; Parsing negative number
-	print "Test 1b: '-1234' -> "
+	print "T1b: '-1234'->"
 	ldstr "-1234"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_debug, &bcd_result
 	jsr crout
 
 	; Printing a number
-	print "Test 2: '123' -> "
+	print "T2: '123'->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_print, &bcd_result
 	jsr crout
 
 	; Printing negative number
-	print "Test 2b: '-123' -> "
+	print "T2b: '-123'->"
 	ldstr "-123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_print, &bcd_result
 	jsr crout
 
 	; Printing a number that has leading zeros
-	print "Test 3: '00123' -> "
+	print "T3: '00123'->"
 	ldstr "00123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_print, &bcd_result
 	jsr crout
 
 	; Printing just zero
-	print "Test 3b: '0' -> "
+	print "T3b: '0'->"
 	ldstr "0"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_print, &bcd_result
 	jsr crout
 
 	; simple increment
-	print "Test 4: inc 123 -> "
+	print "T4: inc 123->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_inc, &bcd_result
@@ -61,7 +61,7 @@ test_fromstr:
 	jsr crout
 
 	; increment neg
-	print "Test 4b: inc -123 -> "
+	print "T4b: inc -123->"
 	ldstr "-123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_inc, &bcd_result
@@ -69,7 +69,7 @@ test_fromstr:
 	jsr crout
 
 	; increment neg to zero
-	print "Test 4c: inc -1 -> "
+	print "T4c: inc -1->"
 	ldstr "-1"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_inc, &bcd_result
@@ -77,7 +77,7 @@ test_fromstr:
 	jsr crout
 
 	; complex increment
-	print "Test 5: inc 99 -> "
+	print "T5: inc 99->"
 	ldstr "99"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_inc, &bcd_result
@@ -85,7 +85,7 @@ test_fromstr:
 	jsr crout
 
 	; bigger increment
-	print "Test 6: inc 99999 -> "
+	print "T6: inc 99999->"
 	ldstr "99999"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_inc, &bcd_result
@@ -93,7 +93,7 @@ test_fromstr:
 	jsr crout
 
 	; simple decrement
-	print "Test 7: dec 123 -> "
+	print "T7: dec 123->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_dec, &bcd_result
@@ -101,7 +101,7 @@ test_fromstr:
 	jsr crout
 
 	; bigger decrement
-	print "Test 8: dec 10000 -> "
+	print "T8: dec 10000->"
 	ldstr "10000"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_dec, &bcd_result
@@ -109,7 +109,7 @@ test_fromstr:
 	jsr crout
 
 	; decrement below zero
-	print "Test 9: dec 0 -> "
+	print "T9: dec 0->"
 	ldstr "0"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_dec, &bcd_result
@@ -117,7 +117,7 @@ test_fromstr:
 	jsr crout
 
 	; compare eq
-	print "Test 10: cmp 123 vs 123 -> "
+	print "T10: cmp 123 vs 123->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_cmp, &bcd_result, &bcd_result
@@ -125,7 +125,7 @@ test_fromstr:
 	jsr crout
 
 	; compare lt
-	print "Test 11: cmp 122 vs 123 -> "
+	print "T11: cmp 122 vs 123->"
 	ldstr "12"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "123"
@@ -135,7 +135,7 @@ test_fromstr:
 	jsr crout
 
 	; compare gt
-	print "Test 12: cmp 123 vs 122 -> "
+	print "T12: cmp 123 vs 122->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "122"

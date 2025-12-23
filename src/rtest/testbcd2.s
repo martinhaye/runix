@@ -11,7 +11,7 @@ test_fromstr:
 	print "Testing bcd:\n"
 
 	; compare add - same len
-	print "Test 13: 123 + 456 -> "
+	print "T13: 123+456->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "456"
@@ -21,7 +21,7 @@ test_fromstr:
 	jsr crout
 
 	; compare add - diff len
-	print "Test 14: 99999 + 3 -> "
+	print "T14: 99999+3->"
 	ldstr "99999"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "3"
@@ -31,7 +31,7 @@ test_fromstr:
 	jsr crout
 
 	; compare add - diff len aligned differently
-	print "Test 15: 999999 + 3 -> "
+	print "T15: 999999+3->"
 	ldstr "999999"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "3"
@@ -41,7 +41,7 @@ test_fromstr:
 	jsr crout
 
 	; compare add - diff len the other direction
-	print "Test 16: 4 + 9999 -> "
+	print "T16: 4+9999->"
 	ldstr "4"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "9999"
@@ -51,7 +51,7 @@ test_fromstr:
 	jsr crout
 
 	; compare add - diff len the other direction
-	print "Test 17: 5 + 99999 -> "
+	print "T17: 5+99999->"
 	ldstr "5"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "99999"
@@ -61,7 +61,7 @@ test_fromstr:
 	jsr crout
 
 	; compare sub - same len
-	print "Test 18: 456 - 123 -> "
+	print "T18: 456-123->"
 	ldstr "456"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "123"
@@ -71,7 +71,7 @@ test_fromstr:
 	jsr crout
 
 	; compare sub - diff len
-	print "Test 19: 1000 - 3 -> "
+	print "T19: 1000-3->"
 	ldstr "1000"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "3"
@@ -81,7 +81,7 @@ test_fromstr:
 	jsr crout
 
 	; compare sub - diff len aligned differently
-	print "Test 20: 10000 - 4 -> "
+	print "T20: 10000-4->"
 	ldstr "10000"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "4"
@@ -91,7 +91,7 @@ test_fromstr:
 	jsr crout
 
 	; short multiply
-	print "Test 21: 23 * 45 -> "
+	print "T21: 23*45->"
 	ldstr "23"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "45"
@@ -101,7 +101,7 @@ test_fromstr:
 	jsr crout
 
 	; short multiply
-	print "Test 22: 93 * 84 -> "
+	print "T22: 93*84->"
 	ldstr "93"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "84"
@@ -111,7 +111,7 @@ test_fromstr:
 	jsr crout
 
 	; longer multiply
-	print "Test 23: 123 * 45 -> "
+	print "T23: 123*45->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "45"
@@ -121,7 +121,7 @@ test_fromstr:
 	jsr crout
 
 	; longer multiply
-	print "Test 24: 12 * 345 -> "
+	print "T24: 12*345->"
 	ldstr "12"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "345"
@@ -131,7 +131,7 @@ test_fromstr:
 	jsr crout
 
 	; big ol multiply
-	print "Test 25: 12345 * 87654 -> "
+	print "T25: 12345*87654->"
 	ldstr "12345"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "87654"

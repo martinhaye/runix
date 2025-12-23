@@ -200,7 +200,28 @@ neg:	ldy #0
 pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 	stax pnum2
-	; scan for the end of one or both numbers
+	; if signs differ, early out
+	lda (pnum1),y
+	cmp #$80	; high bit -> C
+	eor (pnum2),y
+	beq ssign
+	bcs islt	; num1 < 0, signs diff so num2 > 0, so num1 < num2
+	bcc isgt	; else other way round (always taken)
+ssign:	; signs are same.
+	bcc norm	; if positive, normal compare
+	lda pnum1+1	; both negative, so swap the order
+	pha
+	lda pnum1
+	pha
+	lda pnum2
+	sta pnum1
+	lda pnum2+1
+	sta pnum1+1
+	pla
+	sta pnum2
+	pla
+	sta pnum2+1
+norm:	; scan for the end of one or both numbers
 	ldy #1
 lup:	lda (pnum1),y
 	cmp #$FF
