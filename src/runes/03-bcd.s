@@ -10,6 +10,7 @@
 	jmp _bcd_debug
 	jmp _bcd_print
 	jmp _bcd_inc
+	jmp _bcd_dec
 	jmp _bcd_cmp
 	jmp _bcd_add
 	jmp _bcd_sub
@@ -125,7 +126,10 @@ fterm:	lda (ptr),y
 .proc _bcd_inc
 pnum	= bcd_ptr1
 	stax pnum
-	ldy #1
+	ldy #0
+	lda (pnum),y
+	bmi bcd_dec_go
+go:	ldy #1
 lup:	lda (pnum),y
 	cmp #$FF
 	beq ext
@@ -140,6 +144,50 @@ lup:	lda (pnum),y
 	bcs lup
 	rts
 ext:	lda #1
+	sta (pnum),y
+	iny
+	lda #$FF
+	sta (pnum),y
+	rts
+.endproc
+
+;*****************************************************************************
+_bcd_dec:
+	stax bcd_ptr1
+	ldy #0
+	lda (bcd_ptr1),y
+	bmi _bcd_inc::go
+.proc bcd_dec_go
+pnum	= bcd_ptr1
+	ldy #1
+lup:	lda (pnum),y
+	cmp #$FF
+	beq neg
+
+	sec
+	sed		; so fun to actually use 6502's decimal mode
+	sbc #1
+	cld		; gotta clear decimal mode for normal use
+
+	sta (pnum),y
+	iny
+	bcc lup
+	cpy #2		; check for negative zero
+	bne nnz
+	cmp #0
+	bne nnz
+	ldy #0
+	lda (pnum),y
+	bpl nnz
+	tya
+	sta (pnum),y	; make it positive zero
+nnz:	rts
+neg:	ldy #0
+	lda (pnum),y
+	eor #$80
+	sta (pnum),y
+	iny
+	lda #1
 	sta (pnum),y
 	iny
 	lda #$FF

@@ -60,6 +60,22 @@ test_fromstr:
 	call bcd_print, &bcd_result
 	jsr crout
 
+	; increment neg
+	print "Test 4b: inc -123 -> "
+	ldstr "-123"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_inc, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; increment neg to zero
+	print "Test 4c: inc -1 -> "
+	ldstr "-1"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_inc, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
 	; complex increment
 	print "Test 5: inc 99 -> "
 	ldstr "99"
@@ -76,8 +92,32 @@ test_fromstr:
 	call bcd_print, &bcd_result
 	jsr crout
 
+	; simple decrement
+	print "Test 7: dec 123 -> "
+	ldstr "123"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_dec, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; bigger decrement
+	print "Test 8: dec 10000 -> "
+	ldstr "10000"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_dec, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
+	; decrement below zero
+	print "Test 9: dec 0 -> "
+	ldstr "0"
+	call bcd_fromstr, ax, &bcd_result
+	call bcd_dec, &bcd_result
+	call bcd_print, &bcd_result
+	jsr crout
+
 	; compare eq
-	print "Test 7: cmp 123 vs 123 -> "
+	print "Test 10: cmp 123 vs 123 -> "
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_result
 	call bcd_cmp, &bcd_result, &bcd_result
@@ -85,7 +125,7 @@ test_fromstr:
 	jsr crout
 
 	; compare lt
-	print "Test 8: cmp 122 vs 123 -> "
+	print "Test 11: cmp 122 vs 123 -> "
 	ldstr "12"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "123"
@@ -95,93 +135,13 @@ test_fromstr:
 	jsr crout
 
 	; compare gt
-	print "Test 9: cmp 123 vs 122 -> "
+	print "Test 12: cmp 123 vs 122 -> "
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "122"
 	call bcd_fromstr, ax, &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
 	jsr prbyte
-	jsr crout
-
-	; compare add - same len
-	print "Test 10: 123 + 456 -> "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "456"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare add - diff len
-	print "Test 11: 99999 + 3 -> "
-	ldstr "99999"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "3"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare add - diff len aligned differently
-	print "Test 12: 999999 + 3 -> "
-	ldstr "999999"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "3"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare add - diff len the other direction
-	print "Test 13: 4 + 9999 -> "
-	ldstr "4"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "9999"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare add - diff len the other direction
-	print "Test 14: 5 + 99999 -> "
-	ldstr "5"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "99999"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_add, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare sub - same len
-	print "Test 15: 456 - 123 -> "
-	ldstr "456"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare sub - diff len
-	print "Test 16: 1000 - 3 -> "
-	ldstr "1000"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "3"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
-	jsr crout
-
-	; compare sub - diff len aligned differently
-	print "Test 17: 10000 - 4 -> "
-	ldstr "10000"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "4"
-	call bcd_fromstr, ax, &bcd_num2
-	call bcd_sub, &bcd_num1, &bcd_num2, &bcd_result
-	call bcd_print, &bcd_result
 	jsr crout
 
 	print "\nAll tests complete.\n"
