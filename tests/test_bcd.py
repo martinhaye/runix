@@ -39,7 +39,10 @@ def test_bcd(pim65):
     assert re.search(r'T9:.*->-1\b', screen)
     assert re.search(r'T10:.*->00\b', screen)
     assert re.search(r'T11:.*->FF\b', screen)
+    assert re.search(r'T11b:.*->FF\b', screen)
     assert re.search(r'T12:.*->01\b', screen)
+    assert re.search(r'T12b:.*->01\b', screen)
+    assert re.search(r'T12c:.*->01\b', screen)
 
     result = pim65.run_boot_test(
         command_line="cd rtest\\npwd\\ntestbcd2\\nhalt\\n",

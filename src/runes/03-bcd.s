@@ -201,9 +201,11 @@ pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 	stax pnum2
 	; if signs differ, early out
+	ldy #0
 	lda (pnum1),y
 	cmp #$80	; high bit -> C
 	eor (pnum2),y
+	and #$80
 	beq ssign
 	bcs islt	; num1 < 0, signs diff so num2 > 0, so num1 < num2
 	bcc isgt	; else other way round (always taken)

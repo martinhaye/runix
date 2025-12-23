@@ -134,11 +134,41 @@ test_fromstr:
 	jsr prbyte
 	jsr crout
 
+	; compare signed lt
+	print "T11b: cmp -12 vs 12->"
+	ldstr "-12"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "12"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_cmp, &bcd_num1, &bcd_num2
+	jsr prbyte
+	jsr crout
+
 	; compare gt
 	print "T12: cmp 123 vs 122->"
 	ldstr "123"
 	call bcd_fromstr, ax, &bcd_num1
 	ldstr "122"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_cmp, &bcd_num1, &bcd_num2
+	jsr prbyte
+	jsr crout
+
+	; compare signed gt
+	print "T12b: cmp 12 vs -12->"
+	ldstr "12"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "-12"
+	call bcd_fromstr, ax, &bcd_num2
+	call bcd_cmp, &bcd_num1, &bcd_num2
+	jsr prbyte
+	jsr crout
+
+	; compare both neg
+	print "T12c: cmp -12 vs -13->"
+	ldstr "-12"
+	call bcd_fromstr, ax, &bcd_num1
+	ldstr "-13"
 	call bcd_fromstr, ax, &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
 	jsr prbyte
