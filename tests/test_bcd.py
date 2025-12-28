@@ -23,26 +23,26 @@ def test_bcd(pim65):
     print("=== END TEST RESULTS ===\n")
 
     screen = result["screen_output"]
-    assert re.search(r'T1:.*00.23.01.FF\b', screen)
-    assert re.search(r'T1b:.*80.34.12.FF\b', screen)
-    assert re.search(r'T2:.*->123\b', screen)
-    assert re.search(r'T2b:.*->-123\b', screen)
-    assert re.search(r'T3:.*->123\b', screen)
-    assert re.search(r'T3b:.*->0\b', screen)
-    assert re.search(r'T4:.*->124\b', screen)
-    assert re.search(r'T4b:.*->-122\b', screen)
-    assert re.search(r'T4c:.*->0\b', screen)
-    assert re.search(r'T5:.*->100\b', screen)
-    assert re.search(r'T6:.*->100000\b', screen)
-    assert re.search(r'T7:.*->122\b', screen)
-    assert re.search(r'T8:.*->9999\b', screen)
-    assert re.search(r'T9:.*->-1\b', screen)
-    assert re.search(r'T10:.*->00\b', screen)
-    assert re.search(r'T11:.*->FF\b', screen)
-    assert re.search(r'T11b:.*->FF\b', screen)
-    assert re.search(r'T12:.*->01\b', screen)
-    assert re.search(r'T12b:.*->01\b', screen)
-    assert re.search(r'T12c:.*->01\b', screen)
+    assert "T1a: '123' = 00.23.01.FF.." in screen
+    assert "T1b: '-1234' = 80.34.12.FF.." in screen
+    assert "T2a: '123' = 123." in screen
+    assert "T2b: '-123' = -123." in screen
+    assert "T3a: '00123' = 123." in screen
+    assert "T3b: '0' = 0." in screen
+    assert "T4a: inc 123 = 124." in screen
+    assert "T4b: inc -123 = -122." in screen
+    assert "T4c: inc -1 = 0." in screen
+    assert "T5: inc 99 = 100." in screen
+    assert "T6: inc 99999 = 100000." in screen
+    assert "T7: dec 123 = 122." in screen
+    assert "T8: dec 10000 = 9999." in screen
+    assert "T9: dec 0 = -1." in screen
+    assert "T10: cmp 123 vs 123 = 00." in screen
+    assert "T11a: cmp 122 vs 123 = FF." in screen
+    assert "T11b: cmp -12 vs 12 = FF." in screen
+    assert "T12a: cmp 123 vs 122 = 01." in screen
+    assert "T12b: cmp 12 vs -12 = 01." in screen
+    assert "T12c: cmp -12 vs -13 = 01." in screen
 
     result = pim65.run_boot_test(
         command_line="cd rtest\\npwd\\ntestbcd2\\nhalt\\n",
