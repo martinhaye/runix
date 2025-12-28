@@ -211,18 +211,7 @@ pnum2	= bcd_ptr2
 	bcc isgt	; else other way round (always taken)
 ssign:	; signs are same.
 	bcc norm	; if positive, normal compare
-	lda pnum1+1	; both negative, so swap the order
-	pha
-	lda pnum1
-	pha
-	lda pnum2
-	sta pnum1
-	lda pnum2+1
-	sta pnum1+1
-	pla
-	sta pnum2
-	pla
-	sta pnum2+1
+	jsr swapnums
 norm:	; scan for the end of one or both numbers
 	ldy #1
 lup:	lda (pnum1),y
@@ -258,12 +247,54 @@ iseq:	lda #0		; zero and equal
 .endproc
 
 ;*****************************************************************************
+.proc swapnums
+pnum1	= bcd_ptr1
+pnum2	= bcd_ptr2
+	lda pnum1+1	; both negative, so swap the order
+	pha
+	lda pnum1
+	pha
+	lda pnum2
+	sta pnum1
+	lda pnum2+1
+	sta pnum1+1
+	pla
+	sta pnum2
+	pla
+	sta pnum2+1
+	rts
+.endproc
+
+;*****************************************************************************
 .proc _bcd_add
 pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 pout	= bcd_ptr3
 	stax pout
-	ldy #1
+
+	; dispatch based on signs of the args
+	ldy #0
+	lda (pnum1),y
+	bpl pos1
+	; num1 is neg
+	lda (pnum2),y
+	bmi do_add	; if num1<0 and num2<0, normal add with neg output sign
+	; num1<0, num2>0, so subtract num1 from num2
+	jsr swapnums
+	jmp do_sub
+pos1:	; num1 is pos
+	lda (pnum2),y
+	bpl do_add	; if num2 also pos, normal add
+	lda #0
+	jmp do_sub	; num1>0, num2<0, so subtract num2 from num1, pos out sign
+.endproc
+.proc do_add
+pnum1	= bcd_ptr1
+pnum2	= bcd_ptr2
+pout	= bcd_ptr3
+	and #$80	; store output sign
+	sta (pout),y
+	iny
 	clc
 	sed
 lup:	lda (pnum1),y
@@ -313,18 +344,40 @@ pnum1	= bcd_ptr1
 pnum2	= bcd_ptr2
 pout	= bcd_ptr3
 	stax pout
-	ldy #1
+
+	; dispatch based on signs of args
+	ldy #0
+	lda (pnum1),y
+	bpl pos1
+	lda (pnum2),y
+	bmi do_sub
+	; num1<0, num2>0, e.g. -5 - 8 = -(5 + 8) = -13, so it's really an add with neg output sign
+	lda #$80
+	jmp do_add
+pos1:	lda (pnum2),y
+	bpl do_sub	; both positive, do normal sub
+	; num1>0, num2<0, e.g. 5 - -3 = 5 + 3 = 8, so it's an add with pos output sign
+	lda #0
+	jmp do_add
+.endproc
+.proc do_sub
+pnum1	= bcd_ptr1
+pnum2	= bcd_ptr2
+pout	= bcd_ptr3
+	and #$80
+	sta (pout),y
+	iny
 	sec
 	sed
 lup:	lda (pnum2),y
-	sta ad1+1	; modify self below
+	sta sb1+1	; modify self below
 	eor #$FF
 	beq end2
 	lda (pnum1),y
 	eor #$FF
 	beq end1
 do1:	eor #$FF
-ad1:	sbc #modn	; self-modified above
+sb1:	sbc #modn	; self-modified above
 	sta (pout),y
 	iny
 	bne lup		; always taken
@@ -337,11 +390,17 @@ end1:	lda (pnum2),y
 	sta (pout),y
 	iny
 	bcc end1
-fin:	bcs fin2
-	fatal "underflow"
-fin2:	lda #$FF
+fin:	cld
+	bcs fin2
+	; underflow - flip and subtract the other way
+	jsr swapnums
+	ldy #0
+	lda (pout),y
+	eor #$80
+	jmp do_sub
+fin2:	; normal finish
+	lda #$FF
 	sta (pout),y
-	cld
 	rts
 
 end2:	lda (pnum1),y
@@ -378,8 +437,10 @@ clen2:	iny
 
 	; clear the output accumulator
 	ldy #0
-	lda #0
-	sta (pout),y		; sign byte - FIXME shouldn't always be positive
+	lda (pnum1),y		; sign of num1
+	eor (pnum2),y		; mul by sign of num2
+	and #$80
+	sta (pout),y		; is output sign
 	iny
 	lda #0
 clr:	sta (pout),y

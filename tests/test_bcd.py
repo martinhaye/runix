@@ -61,17 +61,26 @@ def test_bcd(pim65):
 
     screen = result["screen_output"]
 
-    assert re.search(r'T13:.*->579\b', screen)
-    assert re.search(r'T14:.*->100002\b', screen)
-    assert re.search(r'T15:.*->1000002\b', screen)
-    assert re.search(r'T16:.*->10003\b', screen)
-    assert re.search(r'T17:.*->100004\b', screen)
-    assert re.search(r'T18:.*->333\b', screen)
-    assert re.search(r'T19:.*->997\b', screen)
-    assert re.search(r'T20:.*->9996\b', screen)
-    assert re.search(r'T21:.*->1035\b', screen)
-    assert re.search(r'T22:.*->7812\b', screen)
-    assert re.search(r'T23:.*->5535\b', screen)
-    assert re.search(r'T24:.*->4140\b', screen)
-    assert re.search(r'T25:.*->1082088630\b', screen)
+    assert "T13: 123 + 456 = 579." in screen
+    assert "T14: 99999 + 3 = 100002." in screen
+    assert "T15: 999999 + 3 = 1000002." in screen
+    assert "T16: 4 + 9999 = 10003." in screen
+    assert "T17: 5 + 99999 = 100004." in screen
+    assert "T18: -5 + -3 = -8." in screen
+    assert "T19a: 5 + -3 = 2." in screen
+    assert "T19b: 5 + -8 = -3." in screen
+    assert "T20a: -5 + 2 = -3." in screen
+    assert "T20b: -5 + 8 = 3." in screen
+    assert "T21: 456 - 123 = 333." in screen
+    assert "T22: 1000 - 3 = 997." in screen
+    assert "T23: 10000 - 4 = 9996." in screen
+    assert "T24a: -5 - -3 = -2." in screen
+    assert "T24b: -5 - -8 = 3." in screen
+    assert "T25a: -5 - 3 = -8" in screen
+    assert "T25b: 5 - -8 = 13." in screen
+    assert "T26: 123 * 45 = 5535." in screen
+    assert "T27: 12 * 345 = 4140." in screen
+    assert "T28: 12345 * 87654 = 1082088630." in screen
+    assert "T29a: -2 * 3 = -6." in screen
+    assert "T29b: -2 * -3 = 6." in screen
 
