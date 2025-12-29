@@ -843,7 +843,10 @@ a2brk:	; put things back the way native brk would be
 	and #$10
 	beq irq	; for now, do nothing on real IRQ
 	tsx
-	lda $102,x	; ret addr lo byte
+	cpx #$10	; check stack for capacity - abort if less than 16 bytes left
+	bcs stkok
+	jmp ovfl
+stkok:	lda $102,x	; ret addr lo byte
 	sec
 	sbc #1		; back to 1st byte after brk
 	sta ld1+1	; mod self below
@@ -947,6 +950,14 @@ pslp:	pla
 psl3:	lda $1111,y	; self-mod above
 	jsr cout
 	jmp pslp
+
+; stack overflow
+ovfl:	ldx #0
+povfl:	lda s_ovfl,x
+	beq bkpnt
+	jsr cout
+	inx
+	bne povfl
 
 ; breakpoint (BRK+00) - print location and registers
 bkpnt:	jsr _crout	; always start on next new line
@@ -1068,6 +1079,7 @@ runefn:		.byte 2, "00" ; length + 2 digits
 s_runes:	.byte 5, "runes"
 s_bin:		.byte 3, "bin"
 s_shell:	.byte 5, "shell"
+s_ovfl:		.byte "\n*STK OVFL*\n"
 
 ;*****************************************************************************
 	.align 32

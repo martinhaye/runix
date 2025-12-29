@@ -28,16 +28,12 @@ irq_handler = bytes([
     0x68,
     # STA $48       ; save P
     0x85, 0x48,
-    # PHA           ; put P back on stack
-    0x48,
-    # TSX           ; get stack pointer
-    0xBA,
-    # LDA $0102,X   ; get PC low from stack (at SP+2)
-    0xBD, 0x02, 0x01,
+    # PLA           ; get PC low from stack
+    0x68,
     # STA $3A       ; save PC low
     0x85, 0x3A,
-    # LDA $0103,X   ; get PC high from stack (at SP+3)
-    0xBD, 0x03, 0x01,
+    # PLA           ; get PC high from stack
+    0x68,
     # STA $3B       ; save PC high
     0x85, 0x3B,
     # JMP ($03F0)   ; jump to user's BRK handler

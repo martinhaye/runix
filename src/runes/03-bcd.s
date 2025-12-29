@@ -312,6 +312,7 @@ fin:	bcc fin2
 fin2:	lda #$FF
 	sta (pout),y
 	cld
+	ldax pout	; for chaining
 	rts
 
 end2:	lda (pnum1),y
@@ -388,6 +389,7 @@ fin:	cld
 fin2:	; normal finish
 	lda #$FF
 	sta (pout),y
+	ldax pout	; for chaining
 	rts
 
 end2:	lda (pnum1),y
@@ -443,7 +445,7 @@ clr:	sta (pout),y
 	sta outpos
 
 outer:	ldy pos1
-	sty outpos		; tricky
+	sty outpos		; tricky - increments each outer
 	lda (pnum1),y
 	cmp #$FF
 	beq fin
@@ -526,7 +528,8 @@ bkup:	dey
 	lda #$FF		; shorten
 	sta (pout),y
 	bne bkup		; always taken
-done:	rts
+done:	ldax pout
+	rts
 
 .endproc
 

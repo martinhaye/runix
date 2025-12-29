@@ -122,19 +122,6 @@ test_fromstr:
 	print "\nAll tests complete.\n"
 	jmp $FFF9
 
-.proc dotcr
-	lda #'.'
-	jsr cout
-	jmp crout
-.endproc
-
-.proc dotsp
-	lda #'.'
-	jsr cout
-	lda #' '
-	jmp cout
-.endproc
-
 ;*****************************************************************************
 ; Data storage
 ;*****************************************************************************
