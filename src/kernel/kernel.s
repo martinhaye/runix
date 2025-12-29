@@ -899,6 +899,8 @@ irq:	rti
 pct:	dey		; turn off percent mode
 	cmp #'s'
 	beq pstr
+	cmp #'D'
+	beq pbcd
 	cmp #'x'
 	bne dopr
 phex:	lda #'$'
@@ -907,6 +909,15 @@ phex:	lda #'$'
 	jsr prbyte
 	lda areg
 	jsr prbyte
+	jmp next
+pbcd:	txa
+	pha
+	lda areg
+	ldx xreg
+	jsr bcd_print
+	pla
+	tax
+	ldy #0
 	jmp next
 pstr:	lda areg
 	sta psl1+1

@@ -45,21 +45,27 @@ font_loaddefault = $C40+(0*3)
 ; Rune 3 (bcd) vectors
 bcd_fromstr	= $C60+(0*3)	; call bcd_fromstr src, dst
   bcd_fromstr_arg0 = bcd_ptr1
-bcd_debug	= $C60+(1*3)
-bcd_print	= $C60+(2*3)
-bcd_inc		= $C60+(3*3)
-bcd_dec		= $C60+(4*3)
-bcd_cmp		= $C60+(5*3)
+bcd_print	= $C60+(1*3)
+bcd_inc		= $C60+(2*3)
+bcd_dec		= $C60+(3*3)
+bcd_cmp		= $C60+(4*3)
   bcd_cmp_arg0	= bcd_ptr1
-bcd_add		= $C60+(6*3)
+bcd_add		= $C60+(5*3)
   bcd_add_arg0	= bcd_ptr1
   bcd_add_arg1	= bcd_ptr2
-bcd_sub		= $C60+(7*3)
+bcd_sub		= $C60+(6*3)
   bcd_sub_arg0	= bcd_ptr1
   bcd_sub_arg1	= bcd_ptr2
-bcd_mul		= $C60+(8*3)
+bcd_mul		= $C60+(7*3)
   bcd_mul_arg0	= bcd_ptr1
   bcd_mul_arg1	= bcd_ptr2
+
+; Load a BCD number from a string. Call like this:
+;	bcd_load "123", &mynum
+.macro bcd_load str, dst
+	ldstr str
+	call bcd_fromstr, ax, dst
+.endmacro
 
 ;*****************************************************************************
 ; String macros
@@ -96,8 +102,9 @@ bcd_mul		= $C60+(8*3)
 ;*****************************************************************************
 ; Word-based macros
 .macro  ldax arg
-.if (.match ({arg}, {ax}))
+.if (.xmatch ({arg}, {ax}))
 	; already in ax - no-op
+	nop
 .elseif (.match (.left(1, {arg}), #))
 	; immediate mode
 	lda #<(.right(.tcount({arg})-1, {arg}))

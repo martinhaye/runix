@@ -23,10 +23,8 @@ def test_bcd(pim65):
     print("=== END TEST RESULTS ===\n")
 
     screen = result["screen_output"]
-    assert "T1a: '123' = 00.23.01.FF.." in screen
-    assert "T1b: '-1234' = 80.34.12.FF.." in screen
-    assert "T2a: '123' = 123." in screen
-    assert "T2b: '-123' = -123." in screen
+    assert "T1: '123' = 123." in screen
+    assert "T2: '-123' = -123." in screen
     assert "T3a: '00123' = 123." in screen
     assert "T3b: '0' = 0." in screen
     assert "T4a: inc 123 = 124." in screen
@@ -37,12 +35,12 @@ def test_bcd(pim65):
     assert "T7: dec 123 = 122." in screen
     assert "T8: dec 10000 = 9999." in screen
     assert "T9: dec 0 = -1." in screen
-    assert "T10: cmp 123 vs 123 = 00." in screen
-    assert "T11a: cmp 122 vs 123 = FF." in screen
-    assert "T11b: cmp -12 vs 12 = FF." in screen
-    assert "T12a: cmp 123 vs 122 = 01." in screen
-    assert "T12b: cmp 12 vs -12 = 01." in screen
-    assert "T12c: cmp -12 vs -13 = 01." in screen
+    assert "T10: cmp 123 vs 123 = $0000." in screen
+    assert "T11a: cmp 122 vs 123 = $FFFF." in screen
+    assert "T11b: cmp -12 vs 12 = $FFFF." in screen
+    assert "T12a: cmp 123 vs 122 = $0001." in screen
+    assert "T12b: cmp 12 vs -12 = $0001." in screen
+    assert "T12c: cmp -12 vs -13 = $0001." in screen
 
     result = pim65.run_boot_test(
         command_line="cd rtest\\npwd\\ntestbcd2\\nhalt\\n",

@@ -10,169 +10,114 @@
 test_fromstr:
 	print "Testing bcd:\n"
 
-	; Parsing a simple number "123"
-	print "T1a: '123' = "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_result
-	call bcd_debug, &bcd_result
-	jsr dotcr
-
-	; Parsing negative number
-	print "T1b: '-1234' = "
-	ldstr "-1234"
-	call bcd_fromstr, ax, &bcd_result
-	call bcd_debug, &bcd_result
-	jsr dotcr
-
 	; Printing a number
-	print "T2a: '123' = "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print "T1: '123'"
+	bcd_load "123", &bcd_result
+	print " = %D.\n"
 
 	; Printing negative number
-	print "T2b: '-123' = "
-	ldstr "-123"
-	call bcd_fromstr, ax, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print "T2: '-123'"
+	bcd_load "-123", &bcd_result
+	print " = %D.\n"
 
 	; Printing a number that has leading zeros
-	print "T3a: '00123' = "
-	ldstr "00123"
-	call bcd_fromstr, ax, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print "T3a: '00123'"
+	bcd_load "00123", &bcd_result
+	print " = %D.\n"
 
 	; Printing just zero
-	print "T3b: '0' = "
-	ldstr "0"
-	call bcd_fromstr, ax, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print "T3b: '0'"
+	bcd_load "0", &bcd_result
+	print " = %D.\n"
 
 	; simple increment
-	print "T4a: inc 123 = "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_result
+	print "T4a: inc 123"
+	bcd_load "123", &bcd_result
 	call bcd_inc, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; increment neg
-	print "T4b: inc -123 = "
-	ldstr "-123"
-	call bcd_fromstr, ax, &bcd_result
+	print "T4b: inc -123"
+	bcd_load "-123", &bcd_result
 	call bcd_inc, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; increment neg to zero
-	print "T4c: inc -1 = "
-	ldstr "-1"
-	call bcd_fromstr, ax, &bcd_result
+	print "T4c: inc -1"
+	bcd_load "-1", &bcd_result
 	call bcd_inc, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; complex increment
-	print "T5: inc 99 = "
-	ldstr "99"
-	call bcd_fromstr, ax, &bcd_result
+	print "T5: inc 99"
+	bcd_load "99", &bcd_result
 	call bcd_inc, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; bigger increment
-	print "T6: inc 99999 = "
-	ldstr "99999"
-	call bcd_fromstr, ax, &bcd_result
+	print "T6: inc 99999"
+	bcd_load "99999", &bcd_result
 	call bcd_inc, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; simple decrement
-	print "T7: dec 123 = "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_result
+	print "T7: dec 123"
+	bcd_load "123", &bcd_result
 	call bcd_dec, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; bigger decrement
-	print "T8: dec 10000 = "
-	ldstr "10000"
-	call bcd_fromstr, ax, &bcd_result
+	print "T8: dec 10000"
+	bcd_load "10000", &bcd_result
 	call bcd_dec, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; decrement below zero
-	print "T9: dec 0 = "
-	ldstr "0"
-	call bcd_fromstr, ax, &bcd_result
+	print "T9: dec 0"
+	bcd_load "0", &bcd_result
 	call bcd_dec, &bcd_result
-	call bcd_print, &bcd_result
-	jsr dotcr
+	print " = %D.\n"
 
 	; compare eq
-	print "T10: cmp 123 vs 123 = "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_result
+	print "T10: cmp 123 vs 123"
+	bcd_load "123", &bcd_result
 	call bcd_cmp, &bcd_result, &bcd_result
-	jsr prbyte
-	jsr dotcr
+	print " = %x.\n"
 
 	; compare lt
-	print "T11a: cmp 122 vs 123 = "
-	ldstr "12"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_num2
+	print "T11a: cmp 122 vs 123"
+	bcd_load "12", &bcd_num1
+	bcd_load "123", &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
-	jsr prbyte
-	jsr dotcr
+	print " = %x.\n"
 
 	; compare signed lt
-	print "T11b: cmp -12 vs 12 = "
-	ldstr "-12"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "12"
-	call bcd_fromstr, ax, &bcd_num2
+	print "T11b: cmp -12 vs 12"
+	bcd_load "-12", &bcd_num1
+	bcd_load "12", &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
-	jsr prbyte
-	jsr dotcr
+	print " = %x.\n"
 
 	; compare gt
-	print "T12a: cmp 123 vs 122 = "
-	ldstr "123"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "122"
-	call bcd_fromstr, ax, &bcd_num2
+	print "T12a: cmp 123 vs 122"
+	bcd_load "123", &bcd_num1
+	bcd_load "122", &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
-	jsr prbyte
-	jsr dotcr
+	print " = %x.\n"
 
 	; compare signed gt
-	print "T12b: cmp 12 vs -12 = "
-	ldstr "12"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "-12"
-	call bcd_fromstr, ax, &bcd_num2
+	print "T12b: cmp 12 vs -12"
+	bcd_load "12", &bcd_num1
+	bcd_load "-12", &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
-	jsr prbyte
-	jsr dotcr
+	print " = %x.\n"
 
 	; compare both neg
-	print "T12c: cmp -12 vs -13 = "
-	ldstr "-12"
-	call bcd_fromstr, ax, &bcd_num1
-	ldstr "-13"
-	call bcd_fromstr, ax, &bcd_num2
+	print "T12c: cmp -12 vs -13"
+	bcd_load "-12", &bcd_num1
+	bcd_load "-13", &bcd_num2
 	call bcd_cmp, &bcd_num1, &bcd_num2
-	jsr prbyte
-	jsr dotcr
+	print " = %x.\n"
 
 	print "\nAll tests complete.\n"
 	jmp $FFF9

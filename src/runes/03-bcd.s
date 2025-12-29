@@ -7,7 +7,6 @@
 
 	; API jump vectors
 	jmp _bcd_fromstr
-	jmp _bcd_debug
 	jmp _bcd_print
 	jmp _bcd_inc
 	jmp _bcd_dec
@@ -60,6 +59,7 @@ store1:	sta (pnum),y
 	bcc procl	; process until sentinel reached
 done:	lda #$FF	; always end with terminator
 store2:	sta (pnum),y
+	ldax pnum	; put addr of target in ax for chaining
 	rts
 .endproc
 
@@ -106,23 +106,6 @@ skip:	rts
 .endproc
 
 ;*****************************************************************************
-.proc _bcd_debug
-ptr	= bcd_ptr1
-	stax ptr
-	ldy #0
-fterm:	lda (ptr),y
-	iny
-	pha
-	jsr prbyte
-	lda #'.'
-	jsr cout
-	pla
-	cmp #$FF
-	bne fterm
-	rts
-.endproc
-
-;*****************************************************************************
 .proc _bcd_inc
 pnum	= bcd_ptr1
 	stax pnum
@@ -142,12 +125,13 @@ lup:	lda (pnum),y
 	sta (pnum),y
 	iny
 	bcs lup
-	rts
+	bcc done	; always taken
 ext:	lda #1
 	sta (pnum),y
 	iny
 	lda #$FF
 	sta (pnum),y
+done:	ldax pnum
 	rts
 .endproc
 
@@ -180,8 +164,7 @@ lup:	lda (pnum),y
 	lda (pnum),y
 	bpl nnz
 	tya
-	sta (pnum),y	; make it positive zero
-nnz:	rts
+	beq done	; make it positive zero
 neg:	ldy #0
 	lda (pnum),y
 	eor #$80
@@ -191,7 +174,8 @@ neg:	ldy #0
 	sta (pnum),y
 	iny
 	lda #$FF
-	sta (pnum),y
+done:	sta (pnum),y
+nnz:	ldax pnum
 	rts
 .endproc
 
@@ -227,10 +211,12 @@ end1:	lda (pnum2),y
 	beq eqlen
 	; num1 is shorter than num2; so num1 < num2
 islt:	lda #$FF	; negative and not equal
+	tax		; in case result will be printed
 	clc		; less than
 	rts
 end2:	; num2 is shorter than num1; so num1 > num2
-isgt:	lda #1		; positive and not equal
+isgt:	ldx #0		; in case result will be printed
+	lda #1		; positive and not equal
 	sec		; greater than (or equal)
 	rts
 	; numbers are the same length; start comparing, MSB to LSB order
@@ -242,6 +228,7 @@ eqlen:	dey
 	bcs isgt	; otherwise, it's either greater or less
 	bcc islt
 iseq:	lda #0		; zero and equal
+	tax		; in case result will be printed
 	sec		; greater than or equal
 	rts		; once we find an inequality, we're done
 .endproc
