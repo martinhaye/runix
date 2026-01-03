@@ -1,6 +1,7 @@
 ; Just echo a string
 
 .include "base.i"
+.include "text.i"
 
         .org $1000	; relocated at load time
 

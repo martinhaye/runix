@@ -1,6 +1,8 @@
 ; BCD Rune Test Program
 
 .include "base.i"
+.include "text.i"
+.include "bcd.i"
 
 	.org $1000
 

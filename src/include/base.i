@@ -16,59 +16,15 @@ bcd_ptr2 = $EC
 bcd_ptr3 = $EE
 
 ;*****************************************************************************
-; Rune 0 (kernel) vectors
-resetrunes	= $C00+(0*3)
-kfatal		= $C00+(1*3)
-rdblks		= $C00+(2*3)
-getdirent	= $C00+(3*3)	; clc=first, Y=dir; sec=next; ret: A/X - ent, Y - name len
-dirscan		= $C00+(4*3)	; A/X - name to scan for, Y - dir to scan
-  DIRSCAN_ROOT	= 0
-  DIRSCAN_CWD	= 2
-  DIRSCAN_RUNES	= 4
-  DIRSCAN_BIN	= 6
-progalloc	= $C00+(5*3)
-progrun		= $C00+(6*3)
-getsetcwd	= $C00+(7*3)
-;*****************************************************************************
-; Rune 1 (text) vectors
-clrscr		= $C20+(0*3)
-gotoxy		= $C20+(1*3)
-cout		= $C20+(2*3)
-crout		= $C20+(3*3)
-prbyte		= $C20+(4*3)
-rdkey		= $C20+(5*3)
-getxy		= $C20+(6*3)
-;*****************************************************************************
-; Rune 2 (font) vectors
-font_loaddefault = $C40+(0*3)
-;*****************************************************************************
-; Rune 3 (bcd) vectors
-bcd_fromstr	= $C60+(0*3)	; call bcd_fromstr src, dst
-  bcd_fromstr_arg0 = bcd_ptr1
-bcd_print	= $C60+(1*3)
-bcd_inc		= $C60+(2*3)
-bcd_dec		= $C60+(3*3)
-bcd_cmp		= $C60+(4*3)
-  bcd_cmp_arg0	= bcd_ptr1
-bcd_add		= $C60+(5*3)
-  bcd_add_arg0	= bcd_ptr1
-  bcd_add_arg1	= bcd_ptr2
-bcd_sub		= $C60+(6*3)
-  bcd_sub_arg0	= bcd_ptr1
-  bcd_sub_arg1	= bcd_ptr2
-bcd_mul		= $C60+(7*3)
-  bcd_mul_arg0	= bcd_ptr1
-  bcd_mul_arg1	= bcd_ptr2
-
-; Load a BCD number from a string. Call like this:
-;	bcd_load "123", &mynum
-.macro bcd_load str, dst
-	ldstr str
-	call bcd_fromstr, ax, dst
-.endmacro
+; Rune vectors
+kernel_vecs	= $C00
+text_vecs	= $C20
+font_vecs	= $C40
+bcd_vecs	= $C60
+string_vecs	= $C80
 
 ;*****************************************************************************
-; String macros
+; Essential printing/loading of strings
 .feature string_escapes	; so that "\n" works in strings
 
 .macro	print	str
@@ -94,10 +50,6 @@ bcd_mul		= $C60+(7*3)
 	brk
 	.byte 0
 .endmacro
-
-;*****************************************************************************
-; Long branch macros (e.g. jeq)
-.MACPACK longbranch
 
 ;*****************************************************************************
 ; Word-based macros

@@ -1,6 +1,7 @@
 ; Advent of code, day 1, puzzle 1a
 
 .include "base.i"
+.include "text.i"
 
 pdata	= $50	; len 2
 num	= $52	; len 2

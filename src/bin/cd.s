@@ -1,6 +1,8 @@
 ; Directory listing
 
 .include "base.i"
+.include "kernel.i"
+.include "text.i"
 
         .org $1000	; relocated at load time
 

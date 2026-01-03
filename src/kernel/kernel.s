@@ -1,6 +1,9 @@
 ; Runix kernel
 
 .include "base.i"
+.include "kernel.i"
+.include "text.i"
+.include "bcd.i"
 
 ; Always loads at $0E00
 	.org $0E00

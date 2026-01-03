@@ -4,6 +4,9 @@
         .org $1000
 
 .include "base.i"
+.include "text.i"
+.include "kernel.i"
+
 ;*****************************************************************************
 .proc main
 	; input a command line

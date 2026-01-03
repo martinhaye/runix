@@ -1,6 +1,8 @@
 ; Advent of code, day 2, puzzle 2a
 
 .include "base.i"
+.include "text.i"
+.include "kernel.i"
 
         .org $1000
 

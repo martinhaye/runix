@@ -4,6 +4,7 @@
         .org $2000
 
 .include "base.i"
+.include "text.i"
 
 	; API jump vectors
 	jmp _bcd_fromstr
