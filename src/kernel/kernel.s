@@ -17,6 +17,8 @@ NDIRBLKS = 4
 
 ;*****************************************************************************
 .proc startup
+	bit $60		; so that k_fixed_rts can point here
+
 	; grab vector to HDD block routine (it was set up by our boot loader)
 	lda $B
 	sta callhdd+1

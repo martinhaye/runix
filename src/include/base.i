@@ -14,6 +14,11 @@ txtptro	= $FE
 bcd_ptr1 = $EA
 bcd_ptr2 = $EC
 bcd_ptr3 = $EE
+; string zero-page
+str_ptr1 = $E6
+str_ptr2 = $E8
+; pool zero-page
+_pool_zp = $E2	; len 4
 
 ;*****************************************************************************
 ; Rune vectors
@@ -21,7 +26,8 @@ kernel_vecs	= $C00
 text_vecs	= $C20
 font_vecs	= $C40
 bcd_vecs	= $C60
-string_vecs	= $C80
+str_vecs	= $C80
+pool_vecs	= $CA0
 
 ;*****************************************************************************
 ; Essential printing/loading of strings
@@ -167,3 +173,10 @@ skip:	dec arg
 ; Markers for self-modded code
 modaddr	= $1111
 modn	= $11
+
+;*****************************************************************************
+; Set the V flag
+k_fixed_rts = $E01	; kernel starts with "bit $60" for this purpose
+.macro setv
+	bit k_fixed_rts
+.endmacro
