@@ -1,7 +1,7 @@
-; Compactible pool of up to 126 variable-sized objects, 1-250 bytes. Each has an
+; Compactable pool of up to 126 variable-sized objects, 1-254 bytes. Each has an
 ; even-numbered ID from 04..FE. Object data always starts with the size.
 ;
-; Objects 00 and 02 are reserved (01 and all other odd-numbered IDs are invalid).
+; Objects 00 and 02 are reserved (01, 03, and all other odd-numbered IDs: invalid).
 
 pool_iptr = _pool_zp	; low byte always zero
 pool_dptr = _pool_zp+2	; low byte always zero
