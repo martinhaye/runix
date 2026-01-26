@@ -6,7 +6,7 @@ CA65 = ca65
 LD65 = ld65
 LDCFG = runix.cfg
 LDFLAGS = -C $(LDCFG)
-CA65FLAGS = -t none -I src/include
+CA65FLAGS = -t none -I src/include --list-bytes 100
 PYTHON = python3
 MKIMG = ./mkrunix.py
 MDNS_CHECK = ./mdns_chk.py
@@ -65,29 +65,29 @@ BASE_INC = src/include/base.i
 
 # Assembly rules: .s -> .o
 $(BUILD)/boot.o: $(BOOT_SRC) $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 $(BUILD)/kernel.o: $(KERNEL_SRC) $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 $(BUILD)/shell.o: $(SHELL_SRC) $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 # Rune 02 depends on generated font
 $(BUILD)/runes/02-font.o: src/runes/02-font.s $(FONT_ASM) $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 $(BUILD)/runes/%.o: src/runes/%.s $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 $(BUILD)/bin/%.o: src/bin/%.s $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 $(BUILD)/demos/%.o: src/demos/%.s $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 $(BUILD)/rtest/%.o: src/rtest/%.s $(BASE_INC) | dirs
-	$(CA65) $(CA65FLAGS) -o $@ $<
+	$(CA65) $(CA65FLAGS) -l $(@:.o=.lst) -o $@ $<
 
 # Linking rule: .o -> .bin (works for all paths)
 %.bin: %.o $(LDCFG)
