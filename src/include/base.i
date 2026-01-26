@@ -169,6 +169,47 @@ skip:	dec arg
 	jsr func
 .endmacro
 
+; Get a value into the A reg
+.macro	ld_a src
+    .if (.xmatch({src}, {a}))
+	; already in A - do nothing
+    .elseif (.xmatch({src}, {x}))
+	txa
+    .elseif (.xmatch({src}, {y}))
+	tya
+    .else
+	lda src
+    .endif
+.endmacro
+
+; Get a value into the X reg
+.macro	ld_x src
+    .if (.xmatch({src}, {x}))
+	; already in X - do nothing
+    .elseif (.xmatch({src}, {a}))
+	tax
+    .elseif (.xmatch({src}, {y}))
+	tya
+	tax
+    .else
+	ldx src
+    .endif
+.endmacro
+
+; Get a value into the Y reg
+.macro	ld_y src
+    .if (.xmatch({src}, {y}))
+	; already in Y - do nothing
+    .elseif (.xmatch({src}, {a}))
+	tay
+    .elseif (.xmatch({src}, {x}))
+	txa
+	tay
+    .else
+	ldy src
+    .endif
+.endmacro
+
 ;*****************************************************************************
 ; Markers for self-modded code
 modaddr	= $1100

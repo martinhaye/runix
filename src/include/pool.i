@@ -7,15 +7,15 @@ pool_iptr = _pool_zp	; low byte always zero
 pool_dptr = _pool_zp+2	; low byte always zero
 
 ;*****************************************************************************
-; Initialize a pool, returning the new pool page in A
+; Initialize a pool. Returns the new pool index page in A.
 .macro pool_init
 	jsr v_pool_init
 .endmacro
 
 ;*****************************************************************************
-; Set which pool to work on. A=index page
+; Set which pool to work on.
 .macro pool_select pool, size
-	lda pool
+	ld_a pool
 	sta pool_iptr+1
 .endmacro
 
@@ -23,21 +23,21 @@ pool_dptr = _pool_zp+2	; low byte always zero
 ; Allocate an object of size A. Returns obj ID in Y.
 ; Aborts if size too large.
 .macro pool_alloc size
-	lda size
+	ld_a size
 	jsr v_pool_alloc
 .endmacro
 
 ;*****************************************************************************
 ; Free an object's space for possible future reuse.
 .macro pool_free objnum
-	lda objnum
+	ld_a objnum
 	jsr v_pool_free
 .endmacro
 
 ;*****************************************************************************
 ; Get a pointer to the data for an obj -> AX
 .macro pool_getptr objnum
-	ldy objnum
+	ld_y objnum
 	iny
 	lda (pool_iptr),y
 	tax
@@ -49,16 +49,16 @@ pool_dptr = _pool_zp+2	; low byte always zero
 ; pool_setsize: Set size of obj in pool in preparation for writing it.
 ;               Scrambles existing obj contents.
 .macro pool_setsize objnum, newsize
-	ldy objnum
-	lda newsize
+	ld_y objnum
+	ld_x newsize
 	jsr v_pool_resize
 .endmacro
 
 ;*****************************************************************************
 ; pool_resize: Resize an object in the pool
 .macro pool_resize objnum, newsize
-	ldy objnum
-	lda newsize
+	ld_a newsize
+	ld_y objnum
 	jsr v_pool_resize
 .endmacro
 

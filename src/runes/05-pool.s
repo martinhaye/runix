@@ -199,6 +199,23 @@ dblfr:	fatal "pool-dbl-free"
 
 ;*****************************************************************************
 .proc pool_setsize
+	sty pool_objnum
+	iny
+	lda (pool_iptr),y
+	sta pool_dptr+1
+	dey
+	lda (pool_iptr),y
+	tay
+	txa
+	cmp (pool_dptr),y	; get current len
+	beq nochg
+	; TODO: handle change of size cases: 
+	;   (1) end of pg and fits; 
+	;   (2) same pg and fits; 
+	;   (3) diff pg needed
+nochg:	iny
+	sta (pool_dptr),y	; scramble contents per contract even if no move
+	rts
 .endproc
 
 ;*****************************************************************************
