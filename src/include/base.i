@@ -177,6 +177,6 @@ modn	= $11
 ;*****************************************************************************
 ; Set the V flag
 k_fixed_rts = $E01	; kernel starts with "bit $60" for this purpose
-.macro setv
+.macro set_v
 	bit k_fixed_rts
 .endmacro

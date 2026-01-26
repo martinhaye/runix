@@ -10,3 +10,15 @@ dirscan		= kernel_vecs+(4*3)	; A/X - name to scan for, Y - dir to scan
 progalloc	= kernel_vecs+(5*3)
 progrun		= kernel_vecs+(6*3)
 getsetcwd	= kernel_vecs+(7*3)
+kpagealloc	= kernel_vecs+(8*3)
+
+.macro pagealloc
+	clc
+	jsr kpagealloc
+.endmacro
+
+.macro pagefree pagenum
+	load_y pagenum
+	sec
+	jsr kpagealloc
+.endmacro

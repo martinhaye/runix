@@ -23,3 +23,7 @@ __pycache__/
 simulator/*.bin
 simulator/*.o
 simulator/*.2mg
+
+# Temporary and old stuff
+tmp/
+old/
