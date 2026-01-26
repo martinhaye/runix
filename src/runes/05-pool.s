@@ -105,7 +105,7 @@ chkpg:	sta pool_dptr+1
 	bne chkpg
 
 	; no room on existing pages - need a new one
-newpg:	jsr pagealloc		; allocate a new data page
+newpg:	pagealloc		; allocate a new data page
 	stx pool_dptr+1
 	; link in at start of page list
 	ldy #0
@@ -195,6 +195,10 @@ islast:	lda pool_objoff
 	rts
 
 dblfr:	fatal "pool-dbl-free"
+.endproc
+
+;*****************************************************************************
+.proc pool_setsize
 .endproc
 
 ;*****************************************************************************

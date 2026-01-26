@@ -1042,6 +1042,24 @@ a2:	ldx cursy
 .endproc
 
 ;*****************************************************************************
+.proc _pageallocfree
+	bcs free	; clc for alloc, sec for free
+alloc:	ldx freepg
+	beq mknew
+	stx _sm1+2
+_sm1:	lda modaddr	; self-mod above: get link to next free pg
+	sta freepg
+	rts
+mknew:	ldy #1		; punt - allocate 1 page the normal way
+	jmp progalloc
+free:	stx _sm2+2
+	lda freepg
+_sm2:	sta modaddr	; link new page at start of free list
+	stx freepg
+	rts
+.endproc
+
+;*****************************************************************************
 ; data
 a3flg:	.byte 0
 cursx:	.byte 0
@@ -1064,6 +1082,7 @@ lastrunepg:	.byte 0
 nextprogpg:	.byte 0
 limitprogpg:	.byte 0
 lastprogpg:	.byte 0
+freepg:		.byte 0
 
 ; disk-related vars
 hddunit:	.byte 0
@@ -1097,6 +1116,7 @@ rune0vecs:	; rune 0 = kernel services
 	jmp _progalloc
 	jmp _progrun
 	jmp _getsetcwd
+	jmp _pageallocfree
 	.align 32,$EA	; rune vecs always total 32 bytes
 rune1vecs:	; rune 1 = text services
 	jmp _clrscr

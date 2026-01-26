@@ -46,6 +46,15 @@ pool_dptr = _pool_zp+2	; low byte always zero
 .endmacro
 
 ;*****************************************************************************
+; pool_setsize: Set size of obj in pool in preparation for writing it.
+;               Scrambles existing obj contents.
+.macro pool_setsize objnum, newsize
+	ldy objnum
+	lda newsize
+	jsr v_pool_resize
+.endmacro
+
+;*****************************************************************************
 ; pool_resize: Resize an object in the pool
 .macro pool_resize objnum, newsize
 	ldy objnum
