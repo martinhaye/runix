@@ -7,6 +7,13 @@ pool_iptr = _pool_zp	; low byte always zero
 pool_dptr = _pool_zp+2	; low byte always zero
 
 ;*****************************************************************************
+; Rune vectors
+v_pool_init	= pool_vecs+(0*3)
+v_pool_alloc	= pool_vecs+(1*3)
+v_pool_free	= pool_vecs+(2*3)
+v_pool_setsize	= pool_vecs+(3*3)
+
+;*****************************************************************************
 ; Initialize a pool. Returns the new pool index page in A.
 .macro pool_init
 	jsr v_pool_init
@@ -30,7 +37,7 @@ pool_dptr = _pool_zp+2	; low byte always zero
 ;*****************************************************************************
 ; Free an object's space for possible future reuse.
 .macro pool_free objnum
-	ld_a objnum
+	ld_y objnum
 	jsr v_pool_free
 .endmacro
 
@@ -47,15 +54,17 @@ pool_dptr = _pool_zp+2	; low byte always zero
 
 ;*****************************************************************************
 ; pool_setsize: Set size of obj in pool in preparation for writing it.
-;               Scrambles existing obj contents.
+;               Always scrambles existing obj contents.
+;		No return value.
 .macro pool_setsize objnum, newsize
 	ld_y objnum
 	ld_x newsize
-	jsr v_pool_resize
+	jsr v_pool_setsize
 .endmacro
 
 ;*****************************************************************************
-; pool_resize: Resize an object in the pool
+; pool_resize: Resize an object in the pool, retaining current content 
+;              (as much as will fit in the new size)
 .macro pool_resize objnum, newsize
 	ld_a newsize
 	ld_y objnum
@@ -63,20 +72,9 @@ pool_dptr = _pool_zp+2	; low byte always zero
 .endmacro
 
 ;*****************************************************************************
-; Calculate how much space is used, and the total number of pages in the pool
+; Add up how much space is used, and the total number of data pages
 ; Out: AX - sum of object lengths
 ;      Y - total number of allocated pages
 .macro pool_total
 	jsr v_pool_total
-.endmacro
-
-;*****************************************************************************
-; Consolidate space used by current objects, consolidating unused space in the
-; pool and releasing any no-longer-needed pool pages. 
-;
-; During the consolidation process, the callback is periodically called; if it
-; sets C=1, the consolidation is safely tied off and can be restarted later.
-.macro pool_collect callback
-	ldax callback
-	jsr v_pool_collect
 .endmacro

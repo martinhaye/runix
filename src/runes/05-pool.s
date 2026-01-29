@@ -10,7 +10,8 @@
 	; API jump vectors
 	jmp _pool_init
 	jmp _pool_alloc
-	;jmp _pool_free
+	jmp _pool_free
+	jmp _pool_setsize
 	;jmp _pool_resize
 	;jmp _pool_total
 	;jmp _pool_collect
@@ -91,9 +92,11 @@ fndid:	dey
 	sta (pool_iptr),y
 
 	; Find space on a data page
+alt1:	; alternate entry point if obj id already known
 	ldy #0
 	lda (pool_iptr),y	; index's first data page to start scan
 chkpg:	sta pool_dptr+1
+alt2:	; alternate entry point if obj id and target page already known
 	ldy #1
 	lda (pool_dptr),y	; offset of next free byte
 	tax			; stash it for possible use
@@ -138,7 +141,7 @@ idfull:	fatal "pool-ids-full"
 .endproc
 
 ;*****************************************************************************
-.proc pool_free
+.proc _pool_free
 	lda (pool_iptr),y	; data ptr lo
 	sta pool_objoff
 	iny
@@ -198,23 +201,63 @@ dblfr:	fatal "pool-dbl-free"
 .endproc
 
 ;*****************************************************************************
-.proc pool_setsize
-	sty pool_objnum
+.proc _pool_setsize
+; on entry, Y=objnum, X=requested len
+	sty pool_objid		; save obj id for later use if moving
 	iny
 	lda (pool_iptr),y
 	sta pool_dptr+1
 	dey
 	lda (pool_iptr),y
+	sta pool_objoff		; for later use
 	tay
+	lda (pool_dptr),y	; get current len
+	sta pool_objlen		; for later use
+	txa			; get requested len
+	sec
+	sbc pool_objlen		; calc how much len is changing
+	beq nochg		; if same len, just scramble and exit
+; 46/47 cyc to here ^^^
+	ldy #1
+	bcc canfit		; if len decreasing, it'll fit on cur pg
+	; A=positive change in len
+	clc
+	adc (pool_dptr),y	; now A=page size after change
+	bcs diffpg		; if past end of pg, have to move to diff pg
+; 59/60 cyc to here ^^^
+canfit:	; we've determined the new obj size will fit on its current page
+	; check if obj is already at the end of its page
+	lda pool_objoff		; add cur offset...
+	sec			; ...to objlen +1
+	adc pool_objlen		; ...equals current end of obj	
+	cmp (pool_dptr),y	; ...vs current end of page
+	bne swap		; if not at end of page, have to swap it up
+; 77/78 cyc to here ^^^
+inplc:	; determined we can resize the obj right where it is
+	txa			; new len...
+	sec			; ...+1
+	adc pool_objoff		; ...plus offset
+	sta (pool_dptr),y	; ...is new end of pg
+	ldy pool_objoff
 	txa
-	cmp (pool_dptr),y	; get current len
-	beq nochg
-	; TODO: handle change of size cases: 
-	;   (1) end of pg and fits; 
-	;   (2) same pg and fits; 
-	;   (3) diff pg needed
+	sta (pool_dptr),y	; store new len
+; 103 cyc to here ^^^
 nochg:	iny
 	sta (pool_dptr),y	; scramble contents per contract even if no move
+	rts
+swap:	; obj will fit on pg but isn't last - free and swap
+	jsr freeit
+	jmp _pool_alloc::alt2	; re-allocate on same page
+diffpg:	; obj has to go on a diff pg - free and totally reallocate
+	jsr freeit
+	jmp _pool_alloc::alt1	; re-allocate on diff page
+freeit:	; subroutine
+	txa
+	pha			; save requested len on stack
+	ldy pool_objid
+	jsr _pool_free		; collapse current space used by obj
+	pla
+	sta pool_objlen		; restore requested len
 	rts
 .endproc
 
