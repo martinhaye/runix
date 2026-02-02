@@ -11,7 +11,7 @@
 	jmp _pool_init
 	jmp _pool_alloc
 	jmp _pool_free
-	jmp _pool_setsize
+	jmp _pool_setlen
 	;jmp _pool_resize
 	;jmp _pool_total
 	;jmp _pool_collect
@@ -92,11 +92,10 @@ fndid:	dey
 	sta (pool_iptr),y
 
 	; Find space on a data page
-alt1:	; alternate entry point if obj id already known
+alt:	; alternate entry point if obj id already known
 	ldy #0
 	lda (pool_iptr),y	; index's first data page to start scan
 chkpg:	sta pool_dptr+1
-alt2:	; alternate entry point if obj id and target page already known
 	ldy #1
 	lda (pool_dptr),y	; offset of next free byte
 	tax			; stash it for possible use
@@ -129,12 +128,13 @@ room:	sta (pool_dptr),y	; advance offset of next free byte
 	lda pool_objlen
 	sta (pool_dptr),y	; save len of new obj
 	ldy pool_objid
-	txa			; obj start again
-	sta (pool_iptr),y	; record addr lo in index
 	iny
 	lda pool_dptr+1
 	sta (pool_iptr),y	; record addr hi in index
-	dey			; return obj id in Y
+	dey
+	txa			; obj start again
+	sta (pool_iptr),y	; record addr lo in index
+	ldx pool_dptr+1		; on return: obj id in Y, addr in AX
 	rts
 
 idfull:	fatal "pool-ids-full"
@@ -194,71 +194,53 @@ smb:	cpy #modn		; self-modified earlier
 
 	; obj is last on page - our work is easy
 islast:	lda pool_objoff
-	sta (pool_dptr),y	; next offset to allocate
+	sta (pool_dptr),y	; simply adjust the next-allocation offset
 	rts
 
 dblfr:	fatal "pool-dbl-free"
 .endproc
 
 ;*****************************************************************************
-.proc _pool_setsize
+.proc _pool_setlen
 ; on entry, Y=objnum, X=requested len
 	sty pool_objid		; save obj id for later use if moving
 	iny
 	lda (pool_iptr),y
 	sta pool_dptr+1
+	sta sma+2
+	sta smc+2
 	dey
 	lda (pool_iptr),y
-	sta pool_objoff		; for later use
 	tay
-	lda (pool_dptr),y	; get current len
-	sta pool_objlen		; for later use
-	txa			; get requested len
-	sec
-	sbc pool_objlen		; calc how much len is changing
-	beq nochg		; if same len, just scramble and exit
-; 46/47 cyc to here ^^^
-	ldy #1
-	bcc canfit		; if len decreasing, it'll fit on cur pg
-	; A=positive change in len
-	clc
-	adc (pool_dptr),y	; now A=page size after change
-	bcs diffpg		; if past end of pg, have to move to diff pg
-; 59/60 cyc to here ^^^
-canfit:	; we've determined the new obj size will fit on its current page
-	; check if obj is already at the end of its page
-	lda pool_objoff		; add cur offset...
-	sec			; ...to objlen +1
-	adc pool_objlen		; ...equals current end of obj	
-	cmp (pool_dptr),y	; ...vs current end of page
-	bne swap		; if not at end of page, have to swap it up
-; 77/78 cyc to here ^^^
-inplc:	; determined we can resize the obj right where it is
-	txa			; new len...
-	sec			; ...+1
-	adc pool_objoff		; ...plus offset
-	sta (pool_dptr),y	; ...is new end of pg
-	ldy pool_objoff
+	txa			; requested len
+	cmp (pool_dptr),y	; vs current len
+	beq nochg		; if len not changing, early out
+  ; 40 cyc
+	; check if obj already at the end of its page (optimal)
+sma:	cpy $1001		; self-mod above - check byte 1 of dpage
+	bne moveit
+	; already at end of page - is there enough space for the new size?
+	sty smb+1
+	;txa			; requested len already in A
+	;sec			; C already set (because cpy was eq above)
+smb:	adc #11			; add obj offset to calc new end of pg
+	bcs moveit
+	; new size fits - adj len and page end
+smc:	sta $1001		; store new end of pg
 	txa
 	sta (pool_dptr),y	; store new len
-; 103 cyc to here ^^^
-nochg:	iny
-	sta (pool_dptr),y	; scramble contents per contract even if no move
+  ; 65 cyc
+nochg:	ldx pool_dptr+1		; exit with ptr in AX
+	tya
 	rts
-swap:	; obj will fit on pg but isn't last - free and swap
-	jsr freeit
-	jmp _pool_alloc::alt2	; re-allocate on same page
-diffpg:	; obj has to go on a diff pg - free and totally reallocate
-	jsr freeit
-	jmp _pool_alloc::alt1	; re-allocate on diff page
-freeit:	; subroutine
-	txa
+
+moveit:	txa
 	pha			; save requested len on stack
 	ldy pool_objid
 	jsr _pool_free		; collapse current space used by obj
 	pla
 	sta pool_objlen		; restore requested len
-	rts
+	jmp _pool_alloc::alt	; re-allocate - alt entry because we know id
 .endproc
 
 ;*****************************************************************************
@@ -267,4 +249,3 @@ freeit:	; subroutine
 pool_objlen:	.byt 0
 pool_objid:	.byt 0
 pool_objoff:	.byt 0
-pool_marker:	.byt 0
