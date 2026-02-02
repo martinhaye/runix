@@ -12,13 +12,14 @@ progrun		= kernel_vecs+(6*3)
 getsetcwd	= kernel_vecs+(7*3)
 kpageallocfree	= kernel_vecs+(8*3)
 
+; Returns new page in X
 .macro pagealloc
 	clc
 	jsr kpageallocfree
 .endmacro
 
 .macro pagefree pagenum
-	load_y pagenum
+	ld_y pagenum
 	sec
 	jsr kpageallocfree
 .endmacro

@@ -1044,7 +1044,7 @@ a2:	ldx cursy
 ;*****************************************************************************
 .proc _pageallocfree
 	bcs free	; clc for alloc, sec for free
-alloc:	ldx freepg
+alloc:	ldx freepg	; this is the page we're going to return
 	beq mknew
 	stx _sm1+2
 _sm1:	lda modaddr	; self-mod above: get link to next free pg
@@ -1052,6 +1052,7 @@ _sm1:	lda modaddr	; self-mod above: get link to next free pg
 	rts
 mknew:	ldy #1		; punt - allocate 1 page the normal way
 	jmp progalloc
+
 free:	stx _sm2+2
 	lda freepg
 _sm2:	sta modaddr	; link new page at start of free list

@@ -12,9 +12,8 @@
 	jmp _pool_alloc
 	jmp _pool_free
 	jmp _pool_setlen
-	;jmp _pool_resize
-	;jmp _pool_total
-	;jmp _pool_collect
+	jmp _pool_resize
+	jmp _pool_total
 	.align 32,$EA
 
 ;*****************************************************************************
@@ -244,8 +243,92 @@ moveit:	txa
 .endproc
 
 ;*****************************************************************************
+.proc _pool_resize
+	sty pool_objid
+	sta pool_objlen
+	pagealloc		; temporary data page to save obj contents
+	stx _sm1+2
+	stx _sm2+2
+	ldy pool_objid
+	iny
+	lda (pool_iptr),y	; obj current data page
+	sta pool_dptr+1
+	dey
+	lda (pool_iptr),y	; obj offset
+	tay
+	lda (pool_dptr),y	; get object's current length
+	beq cpdone		; if zero-len, no copying needed
+	sta _sb1+1		; loop bound for copy
+	ldx #0
+cpout:	iny
+	lda (pool_dptr),y
+_sm1:	sta modaddr,x
+	inx
+_sb1:	cpx #11			; self-modified above - current obj len
+	bne cpout
+cpdone:	; now set the new length
+	ldy pool_objid
+	ldx pool_objlen
+	jsr _pool_setlen
+	lda pool_objlen
+	beq fin
+	sta _sb2+1		; loop bound for copy
+	ldx #0
+	; note - len already set by setlen, so we only need to copy data bytes
+cpin:	iny
+_sm2:	lda modaddr,x
+	sta (pool_dptr),y
+	inx
+_sb2:	cpx #11			; self-modified above - new obj len
+	bne cpin
+fin:	pagefree _sm1+2		; free the temporary copy page
+	rts
+.endproc
+
+;*****************************************************************************
+.proc _pool_total
+	lda #0
+	sta pool_nbytes
+	sta pool_nbytes+1
+	sta pool_npages
+pglup:	ldy #0
+	lda (pool_iptr),y	; link to data page
+	beq fin			; if no data pages, we're done
+nxtpg:	sta pool_dptr+1
+	inc pool_npages		; count this page
+	iny
+	lda (pool_dptr),y
+	sta pool_objoff		; save offset of last obj on page
+	iny
+objlup:	cpy pool_objoff
+	beq pgend		; if at end of page, move to next
+	lda (pool_dptr),y	; get length of obj
+	sta pool_objlen		; save for later
+	sec			; add 1 to account for length byte itself
+	adc pool_nbytes
+	sta pool_nbytes
+	bcc :+
+	inc pool_nbytes+1
+:	tya
+	sec			; again adding 1 for the length byte itself
+	adc pool_objlen
+	tay
+	bcc objlup
+corr:	fatal "pool-pg-corrupt"
+pgend:	ldy #0
+	lda (pool_dptr),y	; next data page
+	bne nxtpg
+	; out: AX = total space used in pool, Y = total number of allocated pages
+fin:	ldax pool_nbytes
+	ldy pool_npages
+	rts
+.endproc
+
+;*****************************************************************************
 ; variables 
 		.byt 0,0,0
 pool_objlen:	.byt 0
 pool_objid:	.byt 0
 pool_objoff:	.byt 0
+pool_npages:	.byt 0
+pool_nbytes:	.word 0

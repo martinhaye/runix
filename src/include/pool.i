@@ -75,7 +75,7 @@ v_pool_setlen	= pool_vecs+(3*3)
 
 ;*****************************************************************************
 ; Add up how much space is used, and the total number of data pages
-; Out: AX - sum of object lengths
+; Out: AX - sum of object data sizes (including their length bytes)
 ;      Y - total number of allocated pages
 .macro pool_total
 	jsr v_pool_total
