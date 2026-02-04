@@ -70,8 +70,8 @@ v_pool_total	= pool_vecs+(5*3)
 ;              (as much as will fit in the new len)
 ;	Return: AX = new obj ptr
 .macro pool_resize objnum, newlen
-	ld_a newlen
 	ld_y objnum
+	ld_x newlen
 	jsr v_pool_resize
 .endmacro
 

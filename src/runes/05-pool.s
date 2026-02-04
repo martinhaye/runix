@@ -223,7 +223,7 @@ sma:	cpy $1001		; self-mod above - check byte 1 of dpage
 	;txa			; requested len already in A
 	;sec			; C already set (because cpy was eq above)
 smb:	adc #11			; add obj offset to calc new end of pg
-	bcs moveit
+	bcs moveit		; if it would overflow page, move the obj
 	; new size fits - adj len and page end
 smc:	sta $1001		; store new end of pg
 	txa
@@ -233,55 +233,63 @@ nochg:	ldx pool_dptr+1		; exit with ptr in AX
 	tya
 	rts
 
-moveit:	txa
-	pha			; save requested len on stack
-	ldy pool_objid
+moveit:	clc			; modified by _pool_resize to be sec
+	stx pool_newlen
+	bcs save
+move2:	ldy pool_objid
 	jsr _pool_free		; collapse current space used by obj
-	pla
+	lda pool_newlen
 	sta pool_objlen		; restore requested len
 	jmp _pool_alloc::alt	; re-allocate - alt entry because we know id
+
+	; in resize mode: save original contents to a temp page
+save:	txa			; new len comes in X
+	cmp (pool_dptr),y	; check against old len
+	bcs :+
+	lda (pool_dptr),y
+:	cmp #0			; A is now min(origlen, newlen) - is it zero?
+	beq move2		; if min len is zero, no copying needed
+	sta _o2+1		; self-modify loop bounds
+	sta _i2+1
+	pagealloc		; get a temporary data page
+	stx _o1+2		; self-modify out-copy loop
+	stx _i1+2		; self-modify in-copy loop
+	ldy pool_objid
+	lda (pool_iptr),y	; obj offset
+	ldx #0
+outlup:	iny			; no need to copy len byte
+	lda (pool_dptr),y
+_o1:	sta modaddr,x
+	inx
+_o2:	cpx #11			; self-modified above - len to copy
+	bne outlup
+	; now we're ready to do the free and reallocate
+	jsr move2
+	; restore original contents (up to new len)
+	tay			; obj offset from alloc was in AX, get offset into Y
+	ldx #0
+	; note - len already set by pool_alloc above, so we only need to copy data bytes
+inlup:	iny
+_i1:	lda modaddr,x
+	sta (pool_dptr),y
+	inx
+_i2:	cpx #11			; self-modified above - len to copy
+	bne inlup
+inrt:	pagefree _i1+2		; free the temporary copy page
+	rts
+
 .endproc
 
 ;*****************************************************************************
 .proc _pool_resize
-	sty pool_objid
-	sta pool_objlen
-	pagealloc		; temporary data page to save obj contents
-	stx _sm1+2
-	stx _sm2+2
-	ldy pool_objid
-	iny
-	lda (pool_iptr),y	; obj current data page
-	sta pool_dptr+1
-	dey
-	lda (pool_iptr),y	; obj offset
-	tay
-	lda (pool_dptr),y	; get object's current length
-	beq cpdone		; if zero-len, no copying needed
-	sta _sb1+1		; loop bound for copy
-	ldx #0
-cpout:	iny
-	lda (pool_dptr),y
-_sm1:	sta modaddr,x
-	inx
-_sb1:	cpx #11			; self-modified above - current obj len
-	bne cpout
-cpdone:	; now set the new length
-	ldy pool_objid
-	ldx pool_objlen
+	; modify _pool_setlen so it will save and restore contents
+	lda #$38	; sec
+	sta _pool_setlen::moveit
+	; now run it
 	jsr _pool_setlen
-	lda pool_objlen
-	beq fin
-	sta _sb2+1		; loop bound for copy
-	ldx #0
-	; note - len already set by setlen, so we only need to copy data bytes
-cpin:	iny
-_sm2:	lda modaddr,x
-	sta (pool_dptr),y
-	inx
-_sb2:	cpx #11			; self-modified above - new obj len
-	bne cpin
-fin:	pagefree _sm1+2		; free the temporary copy page
+	; and put it back to normal
+	ldy #$18	; clc
+	sty _pool_setlen::moveit
 	rts
 .endproc
 
@@ -332,3 +340,4 @@ pool_objid:	.byt 0
 pool_objoff:	.byt 0
 pool_npages:	.byt 0
 pool_nbytes:	.word 0
+pool_newlen:	.byt 0
