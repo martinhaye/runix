@@ -7,9 +7,9 @@
 	.org $1000
 
 ;*****************************************************************************
-; Test bcd_fromstr - convert string to BCD
+; Test bcd
 ;*****************************************************************************
-test_fromstr:
+test_bcd:
 	print "Testing bcd:\n"
 
 	; Printing a number

@@ -13,6 +13,8 @@ v_pool_init	= pool_vecs+(0*3)
 v_pool_alloc	= pool_vecs+(1*3)
 v_pool_free	= pool_vecs+(2*3)
 v_pool_setlen	= pool_vecs+(3*3)
+v_pool_resize	= pool_vecs+(4*3)
+v_pool_total	= pool_vecs+(5*3)
 
 ;*****************************************************************************
 ; Initialize a pool. Returns the new pool index page in A.
