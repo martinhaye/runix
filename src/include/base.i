@@ -31,6 +31,9 @@ pool_vecs	= $CA0
 
 ;*****************************************************************************
 ; Essential printing/loading of strings
+; Migration note: these inline BRK payloads are still zero-terminated today.
+; The target contract is that ordinary runtime strings passed in A/X point at
+; a leading length byte, and these macros will eventually emit that same form.
 .feature string_escapes	; so that "\n" works in strings
 
 .macro	print	str

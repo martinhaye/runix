@@ -92,7 +92,7 @@ Instead of using `BRK` for interrupts, Runix uses it for inline strings:
 lda #1
 ldx #2
 PRINT "Foo %x"    ; prints "Foo $201"
-; Encoding: 00 46 6F 6F 20 25 78 00
+; Current encoding: 00 46 6F 6F 20 25 78 00
 ```
 
 Format codes:
@@ -100,13 +100,16 @@ Format codes:
 - `%x`: print '$' + A/X in hex
 - `%d`: print A/X in decimal
 - `%c`: print A as character
-- `%s`: print string at A/X (length-prefixed if <$80, zero-terminated if ≥$80)
+- `%s`: current implementation is mixed-mode and heuristic
+  - values with first byte `< 32` are treated as length-prefixed
+  - values with first byte `>= 32` are treated as zero-terminated
+  - migration target: ordinary runtime strings should always be length-prefixed
 
 **LDSTR macro** - loads string pointer:
 
 ```asm
-LDSTR "Foobar"    ; points A/X to length-prefixed string
-; Encoding: 00 06 46 6F 6F 62 61 72
+LDSTR "Foobar"    ; currently points A/X to an inline zero-terminated string
+; Current encoding: 00 46 6F 6F 62 61 72 00
 ```
 
 ## Build and Test

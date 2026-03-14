@@ -1010,7 +1010,8 @@ preg:	jsr _cout
 
 ;*****************************************************************************
 .proc _fatal
-; On last line, print "Fatal error: ", then pstring in A/X, then go to monitor
+; On last line, print "Fatal error: ", then a zero-terminated string in A/X,
+; then go to monitor. The runtime migration target is a length-prefixed string.
 	sta ptmp
 	stx ptmp+1
 	jsr _crout	; always start on next fresh line
