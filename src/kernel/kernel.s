@@ -808,14 +808,14 @@ sbrk:	iny
 	cmp #$CB
 	beq chkz
 	cmp #$DB
-	bne bbrk	; if not CB or DB, it's a normal brk
+	beq chkz
+	cmp #$DF
+	bne bbrk	; if not CB or DB or DF, it's a normal brk
 chkz:	iny
-	lda (pscan),y
-	bne chkz	; scan for zero-terminator
-	iny		; and one past for next ins
-	tya		; now we have the len
-	ldy #0
+	lda (pscan),y	; string length byte
 	clc
+	adc #2		; for the brk instruction and CB/DF/DF code
+	ldy #0
 	bcc adv	; always taken
 
 bbrk:	iny
@@ -825,6 +825,29 @@ bbrk:	iny
 	lda #1
 	clc
 	bcc adv	; otherwise, a real brk (always taken)
+.endproc
+
+;*****************************************************************************
+.proc _fatal
+; On last line, print "Fatal error: ", then a zero-terminated string in A/X,
+; then go to monitor. The runtime migration target is a length-prefixed string.
+	sta ld1+1
+	sta ld2+1
+	stx ld1+2
+	stx ld2+2
+	jsr _crout	; always start on next fresh line
+	print "Fatal error: "
+	ldy #0
+ld1:	lda $1111,y
+	tax
+lup:	cpx #0
+	beq done
+	iny
+ld2:	lda $1111,y
+	jsr _cout
+	jmp lup
+done:	jsr _crout
+	jmp gosysmon
 .endproc
 
 ;*****************************************************************************
@@ -843,7 +866,7 @@ a2brk:	; put things back the way native brk would be
 	sta areg
 	stx xreg
 	sty yreg
-	pla
+	pla		; must use the preg on stack, not php/pla
 	pha		; leave preg on stack
 	and #$10
 	beq irq	; for now, do nothing on real IRQ
@@ -851,50 +874,51 @@ a2brk:	; put things back the way native brk would be
 	cpx #$10	; check stack for capacity - abort if less than 16 bytes left
 	bcs stkok
 	jmp ovfl
-stkok:	lda $102,x	; ret addr lo byte
+stkok:	lda $102,x	; ret addr lo byte - 2 bytes after BRK instruction = string len
+	tay		; save for later
 	sec
 	sbc #1		; back to 1st byte after brk
-	sta ld1+1	; mod self below
-	sta ld2+1
-	sta ld3+1
-	tay		; save for later
+	sta ld1+1
 	lda $103,x	; ret addr hi byte
+	tax
 	sbc #0
-	sta ld1+2	; mod self below
-	sta ld2+2
-	sta ld3+2
-	tax		; save for later
-ld1:	lda $1111	; first byte
-	cmp #$CB	; invalid 6502 instruc - WAI on 65816
+	sta ld1+2
+ld1:	lda $1111	; first byte is the mode switcher
+	cmp #$CB	; CB=print (invalid 6502 instruc - WAI on 65816)
 	beq prnt
-	cmp #$DB	; invalid 6502 instruc - STP on 65816
+	cmp #$DB	; DB=loadstr (invalid 6502 instruc - STP on 65816)
 	beq ldst
+	cmp #$DF	; DF=fatal (invalid 6502 instruc - CMP long,x on 65816)
+	beq gofat
 	jmp bkpnt	; BRK+other means actual breakpoint
-ldst:	iny		; point to first byte of the str
-	bne :+
-	inx
-:	sty areg	; load str - put its ptr in A/X (loaded on ret)
+gofat:	jmp _fatal
+irq:	rti
+
+ldst:	sty areg	; load str - put its ptr in A/X (loaded on ret)
 	stx xreg
-	ldx #1
-ld2:	lda $1111,x
-	beq adv
+	stx ld2+2
+ld2:	lda $1100,y	; get string length byte
+	jmp adv2
+
+prnt:	stx ld3+2
+	stx ld4+2
+	stx ld5+2
+	sty ld3+1
+	sty ld4+1
+	sty ld5+1
+	ldx #0
+ld3:	lda $1111,x	; get string length byte
+	sta next+1
+next:	cpx #11
+	bcs adv
 	inx
-	bne ld2		; always taken
-prnt:	ldx #1		; X - index in string
-	ldy #0		; Y - percent mode (1=on)
-	beq ld3		; always taken
-scanz:	cpy #0
-	bne pct
+ld4:	lda $1111,x	; get string byte
 	cmp #'%'
-	bne dopr
-	iny		; set percent mode
-	bne next	; always taken
-dopr:	jsr _cout	; print char
-next:	inx
-ld3:	lda $1111,x	; find terminator
-	bne scanz
-adv:	txa
-	clc		; no need to add 1, since brk already did it
+	beq pct
+	jsr _cout	; print char
+	jmp next
+adv:	lda next+1
+adv2:	sec		; need to add 1 to account for string length byte
 	tsx
 	adc $102,x	; ret adr lo
 	sta $102,x
@@ -903,14 +927,15 @@ adv:	txa
 :	lda areg
 	ldx xreg
 	ldy yreg
-irq:	rti
-pct:	dey		; turn off percent mode
+	rti
+pct:	inx		; get percent code
+ld5:	lda $1111,x
 	cmp #'s'
 	beq pstr
 	cmp #'D'
 	beq pbcd
 	cmp #'x'
-	bne dopr
+	bne next
 phex:	lda #'$'
 	jsr cout
 	lda xreg
@@ -925,44 +950,26 @@ pbcd:	txa
 	jsr bcd_print
 	pla
 	tax
-	ldy #0
 	jmp next
 pstr:	lda areg
 	sta psl1+1
 	sta psl2+1
-	sta psl3+1
 	lda xreg
 	sta psl1+2
 	sta psl2+2
-	sta psl3+2
 	ldy #0
-psl1:	lda $1111,y	; self-mod above
-	cmp #32
-	bcc plen
-pzt:	iny
-psl2:	lda $1111,y	; self-mod above
+psl1:	lda $1111,y	; self-mod above; get length byte
+	sta pslck+1
+pslck:	cpy #11		; self-mod above
 	beq psdn
-	jsr cout
-	jmp pzt
-psdn:	jmp next
-plen:	pha
-pslp:	pla
-	beq psdn
-	sec
-	sbc #1
-	pha
 	iny
-psl3:	lda $1111,y	; self-mod above
+psl2:	lda $1111,y	; self-mod above
 	jsr cout
-	jmp pslp
+	jmp pslck
+psdn:	jmp next
 
 ; stack overflow
-ovfl:	ldx #0
-povfl:	lda s_ovfl,x
-	beq bkpnt
-	jsr cout
-	inx
-	bne povfl
+ovfl:	fatal "STK OVFL"
 
 ; breakpoint (BRK+00) - print location and registers
 bkpnt:	jsr _crout	; always start on next new line
@@ -1006,24 +1013,6 @@ preg:	jsr _cout
 	txa
 	jsr _prbyte
 	jmp _prspc
-.endproc
-
-;*****************************************************************************
-.proc _fatal
-; On last line, print "Fatal error: ", then a zero-terminated string in A/X,
-; then go to monitor. The runtime migration target is a length-prefixed string.
-	sta ptmp
-	stx ptmp+1
-	jsr _crout	; always start on next fresh line
-	print "Fatal error: "
-	ldy #0
-lup:	lda (ptmp),y
-	beq done
-	jsr _cout
-	iny
-	bne lup		; always taken
-done:	jsr _crout
-	jmp gosysmon
 .endproc
 
 ;*****************************************************************************
@@ -1105,13 +1094,11 @@ runefn:		.byte 2, "00" ; length + 2 digits
 s_runes:	.byte 5, "runes"
 s_bin:		.byte 3, "bin"
 s_shell:	.byte 5, "shell"
-s_ovfl:		.byte "\n*STK OVFL*\n"
 
 ;*****************************************************************************
 	.align 32
 rune0vecs:	; rune 0 = kernel services
 	jmp _resetrunes
-	jmp _fatal
 	jmp _readblks
 	jmp _getdirent
 	jmp _dirscan

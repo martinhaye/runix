@@ -37,16 +37,15 @@ pool_vecs	= $CA0
 .feature string_escapes	; so that "\n" works in strings
 
 .macro	print	str
-	.byte 0, $CB, str, 0
+	.byte 0, $CB, .strlen(str), str
 .endmacro
 
 .macro	ldstr	str
-	.byte 0, $DB, str, 0
+	.byte 0, $DB, .strlen(str), str
 .endmacro
 
 .macro	fatal	str
-	ldstr str
-	jmp kfatal
+	.byte 0, $DF, .strlen(str), str
 .endmacro
 
 .macro bcc_or_die str

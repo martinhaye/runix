@@ -13,10 +13,10 @@ def test_string_formatting_rtest(pim65):
     screen = result["screen_output"]
     assert "Testing strings:" in screen
     # Current ldstr + %s path skips the first byte of zero-terminated inline strings.
-    assert "T1: nline literal" in screen
+    assert "T1: inline literal" in screen
     assert "T2: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" in screen
-    # Current kernel %s misclassifies len=32 as zero-terminated and leaks one extra byte.
-    assert "T3: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB!" in screen
+    # Make sure the byte after isn't printed
+    assert "T3: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" in screen
 
 
 def test_fatal_path_rtest(pim65):
