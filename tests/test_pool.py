@@ -23,4 +23,35 @@ def test_pool(pim65):
     print("=== END TEST RESULTS ===\n")
 
     screen = result["screen_output"]
-    assert "T1: tot=$0006 np=$0001" in screen
+    assert "T1: id=$0002 tot=$0006 np=$0001" in screen
+    assert "T2: HELLO" in screen
+
+
+def test_pool_free_characterization(pim65):
+    """Characterize the current pool free path."""
+    result = pim65.run_boot_test(
+        command_line="cd rtest\\ntestpoolfree\\n",
+        max_instructions=100000,
+        timeout=2
+    )
+
+    screen = result["screen_output"]
+    assert "Testing pool free:" in screen
+    assert "T1: HELLO" in screen
+    assert "T2: free" in screen
+    assert "Fatal error: pool-pg-corrupt" in screen
+
+
+def test_pool_resize_characterization(pim65):
+    """Characterize the current pool resize path."""
+    result = pim65.run_boot_test(
+        command_line="cd rtest\\ntestpoolrz\\n",
+        max_instructions=100000,
+        timeout=2
+    )
+
+    screen = result["screen_output"]
+    assert "Testing pool resize:" in screen
+    assert "T1: HELLO" in screen
+    assert "T2: resize" in screen
+    assert "Fatal error: pool-pg-corrupt" in screen

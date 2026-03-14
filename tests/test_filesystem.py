@@ -87,3 +87,15 @@ def test_multiple_commands(pim65):
     # Basic sanity check - should have executed multiple commands
     assert len(screen) > 20, "Should have output from multiple commands"
     assert "/" in screen, "Should show root directory at some point"
+
+
+def test_echo_argument(pim65):
+    """Test echo with a shell-provided argument string."""
+    result = pim65.run_boot_test(
+        command_line="echo hello\\nhalt\\n",
+        max_instructions=100000,
+        timeout=2
+    )
+
+    screen = result["screen_output"]
+    assert "hello" in screen, "echo should print the provided argument"
