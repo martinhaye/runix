@@ -109,67 +109,58 @@ LDSTR "Foobar"    ; points A/X to length-prefixed string
 ; Encoding: 00 06 46 6F 6F 62 61 72
 ```
 
-## Build System
+## Build and Test
 
-### Tools
+### Prerequisites
 
-- **ca65**: Assembler from cc65 suite
-- **Python 3**: For building disk images
-- Target: 6502 CPU
+- cc65 tools: `ca65` and `ld65`
+- Python 3
+- `pytest` for the integration test suite
+- Install Python dependencies with `pip install -r requirements.txt -r tests/requirements.txt`
 
-### Directory Structure
+### Build Outputs
 
-```
-/workspace/
-├── src/
-│   ├── boot/         # Bootloader (block 0, loads at $0800)
-│   ├── kernel/       # Kernel (loads at $0E00)
-│   ├── runes/        # System runes (relocatable, origin $2000)
-│   ├── shell/        # Shell (relocatable, origin $2000)
-│   ├── bin/          # Utility programs (relocatable, origin $2000)
-│   └── demos/        # Demo programs (relocatable, origin $2000)
-├── build/            # Build output directory
-│   ├── *.bin         # Assembled binaries
-│   └── runix.2mg     # Final disk image
-├── Makefile          # Top-level build system
-├── mkrunix.py        # Python script to create .2mg filesystem image
-└── IDEAS.md          # Design documentation
-```
+- `make` builds everything into `build/`
+- Each assembly source is assembled to `.o`, linked to a raw `.bin`, and also gets a `.lst` listing
+- `mkrunix.py` then packs those binaries into `build/runix.2mg`
+- The image layout mirrors how Runix is organized at runtime:
+  - root contains `runix`
+  - subdirectories contain `runes`, `bin` (including `shell`), `demos`, and `rtest`
+- `src/runes/base_font.s` is generated from `src/runes/base_font.txt` during the build
 
-### Makefile Targets
+### Common Commands
 
-- `make` or `make all`: Build everything and create disk image
-- `make clean`: Remove all build artifacts
-- `make help`: Show help
+- `make`: build `build/runix.2mg`
+- `make test`: build the image, then run the Runix integration tests
+- `make -C tests test-verbose`: run tests with uncaptured output
+- `make -C tests test-<name>`: run one test file such as `make -C tests test-boot`
+- `make deploy`: optionally rsync the image to `diskserver.local` if it is reachable
+- `make clean`: remove build artifacts
 
-### Build Process
+### Test Infrastructure
 
-1. **Assemble modules**: Each `.s` file assembled to `.bin` with ca65
-   - Boot: assembles at `$0800`
-   - Kernel: assembles at `$0E00`
-   - Everything else: assembles at `$2000` (will be relocated at runtime)
-2. **Create filesystem**: `mkrunix.py` builds proper Runix filesystem
-3. **Generate .2mg**: Creates 32MB ProDOS-ordered disk image with 2mg header
+- Runix feature tests live in `tests/` and are written with `pytest`
+- The test harness boots `build/runix.2mg` inside the in-process `pim65` simulator
+- `tests/mkbootstub.py` generates `tests/bootstub.bin`, which the fixtures use to load block 0 and enter Runix the same way every test does
+- Most tests drive the shell by injecting command lines, then assert against screen output and simulator stderr
+- For lower-level feature work, the usual pattern is:
+  1. add a small assembly test program under `src/rtest/`
+  2. let `make` include it in the disk image under `/rtest`
+  3. add a `tests/test_*.py` case that boots Runix, runs that program from the shell, and checks the output
+- If you are changing the simulator itself, its separate tests live in `pim65/tests/`
 
-### mkrunix.py Details
+### Image Builder Notes
 
-Creates a 32MB (65536 blocks) disk image with:
-
-- Proper 2mg header (creator code: `RNIX`)
-- Block 0: Boot block with Runix magic bytes
-- Blocks 1-4: Root directory with all files cataloged
-- Automatic subdirectory creation (e.g., `/runes/`)
-- Proper directory entry formatting (ASCII names)
-- File layout: kernel → runes dir → runes → shell → bins → demos
+`mkrunix.py` creates the `.2mg` image, writes block 0, lays out the root directory and subdirectories, and then copies in the built binaries for `runix`, `runes`, `bin`, `demos`, and `rtest`.
 
 ## Assembly Language Notes
 
-### ca65 Assembler
+### cc65 Toolchain
 
-- Part of cc65 suite
-- Use `-t none` for raw binary output (no linking)
-- `.org` directive sets origin address
-- No linker needed - each binary is independent
+- `ca65` assembles sources to object files
+- `ld65` links them into raw binaries using `runix.cfg`
+- `-t none` is used for the 6502 bare-metal target
+- The linker config provides the final memory map and vector placement
 
 ### 6502 Conventions
 
@@ -180,7 +171,7 @@ Creates a 32MB (65536 blocks) disk image with:
 
 ## Development Workflow
 
-1. Edit source files in `src/*/`
-2. Run `make` to build
-3. Test resulting `build/runix.2mg` in Apple III emulator
-4. Iterate
+1. Edit sources in `src/`
+2. If the change needs focused runtime coverage, add or update an `src/rtest/*.s` helper and a matching `tests/test_*.py`
+3. Run `make test` for the normal loop, or `make -C tests test-<name>` when iterating on one area
+4. Use `build/runix.2mg` in your emulator or `make deploy` when you want manual interactive testing
