@@ -1,4 +1,4 @@
-# Runix Project - Claude Context
+# Runix Project - Context
 
 ## Project Overview
 
@@ -162,26 +162,6 @@ Creates a 32MB (65536 blocks) disk image with:
 - Proper directory entry formatting (ASCII names)
 - File layout: kernel → runes dir → runes → shell → bins → demos
 
-## Current State
-
-### Implemented
-
-- Complete build system (Makefile + mkrunix.py)
-- Source directory structure
-- Stub assembly files for all modules (just `rts` for now)
-- Proper .2mg disk image generation with Runix filesystem
-- Root directory and runes subdirectory structure
-
-### To Do
-
-- Implement bootloader (block 0 loader)
-- Implement kernel initialization
-- Implement rune loader and relocation
-- Implement system runes (Rune 00: block I/O, file ops)
-- Implement shell
-- Implement string macros (PRINT, LDSTR)
-- Implement utilities (pwd, ls, etc.)
-
 ## Assembly Language Notes
 
 ### ca65 Assembler
@@ -198,24 +178,9 @@ Creates a 32MB (65536 blocks) disk image with:
 - Zero page addressing is fast
 - Stack at `$0100-$01FF`
 
-## Related Files
-
-- [IDEAS.md](IDEAS.md) - Detailed design notes and decisions
-- [Makefile](Makefile) - Build system
-- [mkrunix.py](mkrunix.py) - Disk image builder
-- [experiments.s](experiments.s) - Performance experiments (BRK overhead, etc.)
-- [dirscan.s](dirscan.s) - Directory scanning code (work in progress)
-
 ## Development Workflow
 
 1. Edit source files in `src/*/`
 2. Run `make` to build
 3. Test resulting `build/runix.2mg` in Apple III emulator
 4. Iterate
-
-## Apple III Hardware Notes
-
-- 6502A CPU @ 2 MHz
-- Bank-switched memory (4 banks of 64KB)
-- Built-in disk controller
-- ProDOS-based disk format (which we're replacing with Runix filesystem)
