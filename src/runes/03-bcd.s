@@ -28,12 +28,19 @@ pnum	= bcd_ptr2
 	ldy #0		; Y - string pos
 	tya
 	sta (pnum),y
-	lda (pstr),y
+	lda (pstr),y	; get length byte
+	tax
+	beq proc
+	iny
+	lda (pstr),y	; check for minus sign
 	cmp #'-'
 	bne scan
 	lda #$80
+	dey
 	sta (pnum),y
 	iny
+	iny
+	dex
 	
 scan:	lda (pstr),y
 	sec
@@ -43,7 +50,8 @@ scan:	lda (pstr),y
 	bcs proc
 	pha		; save digit for later
 	iny
-	bne scan	; always taken
+	dex
+	bne scan
 	; digits are now on the stack, and we can pop least-to-most sig
 proc:	ldy #1		; Y - dest byte pos
 procl:	pla
