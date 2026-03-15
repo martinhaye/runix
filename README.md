@@ -84,15 +84,16 @@
 
 ### BRK-based String Macros
 
-Instead of using `BRK` for interrupts, Runix uses it for inline strings:
+Instead of using `BRK` for interrupts, Runix uses it for inline strings. The encoding is a 2-byte header (BRK + length byte) then the string bytes.
 
-**PRINT macro** - prints formatted strings:
+**print macro** - prints formatted strings:
 
 ```asm
 lda #1
 ldx #2
-PRINT "Foo %x"    ; prints "Foo $0201"
+print "Foo %x"    ; prints "Foo $0201"
 ; Encoding: 00 86 46 6F 6F 20 25 78
+; The 86 above is the length (6) plus the high-bit to say "print" instead of "ldstr"
 ```
 
 Format codes:
@@ -102,11 +103,14 @@ Format codes:
 - `%c`: print A as character
 - `%s`: print length-prefixed string pointed to by A/X
 
-**LDSTR macro** - loads string pointer:
+Only ONE format code is allowed per print
+
+**ldstr macro** - loads string pointer:
 
 ```asm
-LDSTR "Foobar"    ; points A/X to an inline length-prefixed string
+ldstr "Foobar"    ; points A/X to an inline length-prefixed string
 ; Encoding: 00 06 46 6F 6F 62 61 72
+; The 6 above is the string length
 ```
 
 ## Build and Test

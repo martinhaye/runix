@@ -12,7 +12,7 @@ def test_string_formatting_rtest(pim65):
 
     screen = result["screen_output"]
     assert "Testing strings:" in screen
-    # Current ldstr + %s path skips the first byte of zero-terminated inline strings.
+    # %s prints the length-prefixed string at A/X (first byte = length, then that many chars).
     assert "T1: inline literal" in screen
     assert "T2: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" in screen
     # Make sure the byte after isn't printed

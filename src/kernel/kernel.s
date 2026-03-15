@@ -823,7 +823,7 @@ bbrk:	iny
 
 ;*****************************************************************************
 .proc _fatal
-; On last line, print "Fatal error: ", then a zero-terminated string in A/X,
+; On last line, print "Fatal error: ", then a length-prefixed string in A/X,
 ; then go to monitor.
 	sta ld1+1
 	sta ld2+1
