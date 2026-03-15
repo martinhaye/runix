@@ -700,10 +700,10 @@ st:	sta $1111,y	; self-modified above
 prdig:	cmp #$A
 	bcs letr
 	adc #'0'
-	jmp cout
+	jmp _cout
 letr:	clc
 	adc #'A'-$A
-	jmp cout
+	jmp _cout
 .endproc
 
 ;*****************************************************************************
@@ -804,17 +804,11 @@ skip:	lda #3		; back to 3-byte len
 	bcc adv	; always taken
 
 sbrk:	iny
-	lda (pscan),y	; check 1st byte of str
-	cmp #$CB
-	beq chkz
-	cmp #$DB
-	beq chkz
-	cmp #$DF
-	bne bbrk	; if not CB or DB or DF, it's a normal brk
-chkz:	iny
-	lda (pscan),y	; string length byte
+	lda (pscan),y	; check 1st byte of str (length byte)
+	beq bbrk	; if zero, real breakpoint
+	and #$7F	; strip off hi-bit if present (marking print vs ldstr), leaving just length
 	clc
-	adc #2		; for the brk instruction and CB/DF/DF code
+	adc #2		; for the brk instruction and str len
 	ldy #0
 	bcc adv	; always taken
 
@@ -830,7 +824,7 @@ bbrk:	iny
 ;*****************************************************************************
 .proc _fatal
 ; On last line, print "Fatal error: ", then a zero-terminated string in A/X,
-; then go to monitor. The runtime migration target is a length-prefixed string.
+; then go to monitor.
 	sta ld1+1
 	sta ld2+1
 	stx ld1+2
@@ -839,13 +833,13 @@ bbrk:	iny
 	print "Fatal error: "
 	ldy #0
 ld1:	lda $1111,y
-	tax
-lup:	cpx #0
 	beq done
-	iny
+	tax
+lup:	iny
 ld2:	lda $1111,y
 	jsr _cout
-	jmp lup
+	dex
+	bne lup
 done:	jsr _crout
 	jmp gosysmon
 .endproc
@@ -874,51 +868,32 @@ a2brk:	; put things back the way native brk would be
 	cpx #$10	; check stack for capacity - abort if less than 16 bytes left
 	bcs stkok
 	jmp ovfl
-stkok:	lda $102,x	; ret addr lo byte - 2 bytes after BRK instruction = string len
-	tay		; save for later
+stkok:	lda $102,x	; ret addr lo byte - 2 bytes after BRK instruction
 	sec
-	sbc #1		; back to 1st byte after brk
+	sbc #1		; back to 1st byte after brk - which is string length byte
+	tay		; save for later
 	sta ld1+1
 	lda $103,x	; ret addr hi byte
-	tax
 	sbc #0
+	tax
 	sta ld1+2
-ld1:	lda $1111	; first byte is the mode switcher
-	cmp #$CB	; CB=print (invalid 6502 instruc - WAI on 65816)
-	beq prnt
-	cmp #$DB	; DB=loadstr (invalid 6502 instruc - STP on 65816)
-	beq ldst
-	cmp #$DF	; DF=fatal (invalid 6502 instruc - CMP long,x on 65816)
-	beq gofat
-	jmp bkpnt	; BRK+other means actual breakpoint
-gofat:	jmp _fatal
-irq:	rti
+
+ld1:	lda $1111	; get string length
+	bmi prnt
+	bne ldst
+	jmp bkpnt	; brk 00 is real breakpoint
 
 ldst:	sty areg	; load str - put its ptr in A/X (loaded on ret)
 	stx xreg
-	stx ld2+2
-ld2:	lda $1100,y	; get string length byte
-	jmp adv2
+	tax
 
-prnt:	stx ld3+2
-	stx ld4+2
-	stx ld5+2
-	sty ld3+1
-	sty ld4+1
-	sty ld5+1
-	ldx #0
-ld3:	lda $1111,x	; get string length byte
-	sta next+1
-next:	cpx #11
-	bcs adv
-	inx
-ld4:	lda $1111,x	; get string byte
-	cmp #'%'
-	beq pct
-	jsr _cout	; print char
-	jmp next
-adv:	lda next+1
-adv2:	sec		; need to add 1 to account for string length byte
+	lda #$60
+	sta 0
+	jsr 0
+
+
+adv:	txa
+	clc		; brk already adjusted by 2, so no need to add 1 or anything here
 	tsx
 	adc $102,x	; ret adr lo
 	sta $102,x
@@ -927,7 +902,23 @@ adv2:	sec		; need to add 1 to account for string length byte
 :	lda areg
 	ldx xreg
 	ldy yreg
-	rti
+irq:	rti
+
+prnt:	and #$7F	; strip off hi-bit that was flag for print, leaving just length
+	sta next+1	; save length for comparison
+	stx ld4+2
+	stx ld5+2
+	sty ld4+1
+	sty ld5+1
+	ldx #0
+next:	cpx #11
+	bcs adv
+	inx
+ld4:	lda $1111,x	; get string byte
+	cmp #'%'
+	beq pct
+	jsr _cout	; print char
+	jmp next
 pct:	inx		; get percent code
 ld5:	lda $1111,x
 	cmp #'s'
@@ -937,7 +928,7 @@ ld5:	lda $1111,x
 	cmp #'x'
 	bne next
 phex:	lda #'$'
-	jsr cout
+	jsr _cout
 	lda xreg
 	jsr prbyte
 	lda areg
@@ -964,7 +955,7 @@ pslck:	cpy #11		; self-mod above
 	beq psdn
 	iny
 psl2:	lda $1111,y	; self-mod above
-	jsr cout
+	jsr _cout
 	jmp pslck
 psdn:	jmp next
 
@@ -1099,6 +1090,7 @@ s_shell:	.byte 5, "shell"
 	.align 32
 rune0vecs:	; rune 0 = kernel services
 	jmp _resetrunes
+	jmp _fatal
 	jmp _readblks
 	jmp _getdirent
 	jmp _dirscan
