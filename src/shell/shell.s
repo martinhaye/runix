@@ -11,17 +11,15 @@
 .proc main
 	; input a command line
 @repl:	jsr rdlin
-	; zero-terminate the command line also, for later processing
-	ldy inbuf
-	lda #0
-	sta inbuf+1,y
 	; find space between program name and args
+	ldx inbuf
+	beq @fnden
 	ldy #0
 @cksp:	lda inbuf+1,y
 	cmp #' '
 	beq @fnden
 	iny
-	cpy inbuf
+	dex
 	bne @cksp
 @fnden:	lda inbuf	; get old len
 	sty inbuf	; truncate to just prog name

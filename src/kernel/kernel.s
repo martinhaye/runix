@@ -816,9 +816,9 @@ bbrk:	iny
 	lda (pscan),y	; one more byte
 	beq stop	; 3 zeros in a row --> stop relocation, data section begun
 	ldy #0
-	lda #1
+	lda #2
 	clc
-	bcc adv	; otherwise, a real brk (always taken)
+	bcc adv		; otherwise, a real brk (always taken)
 .endproc
 
 ;*****************************************************************************

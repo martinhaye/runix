@@ -10,11 +10,12 @@
 	stx ptmp+1
 	ldy #0
 	lda (ptmp),y
+	beq done
 	tax
 prchr:	iny
 	lda (ptmp),y
 	jsr cout
 	dex
 	bne prchr
-	jmp crout
+done:	jmp crout
 .endproc
