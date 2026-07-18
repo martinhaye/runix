@@ -1,0 +1,61 @@
+name: runix
+include_dirs: [src/include]
+build_dir: build
+
+steps:
+  - generate:
+      language: js
+      script: src/runes/font_to_asm.js
+      out: build/generated/base_font.s
+
+  - assemble:
+      sources: src/boot/boot.s
+      out: boot.bin
+
+  - assemble:
+      sources: src/kernel/kernel.s
+      out: kernel.bin
+
+  - assemble:
+      sources: src/shell/shell.s
+      out: shell.bin
+
+  - assemble:
+      sources:
+        - src/runes/02-font.s
+        - src/runes/03-bcd.s
+        - src/runes/05-pool.s
+      out_dir: runes/
+
+  - assemble:
+      sources: src/bin/*.s
+      out_dir: bin/
+
+  - assemble:
+      sources: src/demos/*.s
+      out_dir: demos/
+
+  - assemble:
+      sources: src/rtest/*.s
+      out_dir: rtest/
+
+  - pack_image:
+      format: runix_2mg
+      out: runix.2mg
+      boot: boot.bin
+      root:
+        runix: kernel.bin
+      dirs:
+        runes: [runes/*.bin]
+        bin: [shell.bin, bin/*.bin]
+        demos: [demos/*.bin]
+        rtest: [rtest/*.bin]
+
+run:
+  disk: build/runix.2mg
+  start: 0x1000
+  max_instructions: 100000
+
+profiles:
+  halt:
+    keys: ["halt\n"]
