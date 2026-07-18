@@ -39,6 +39,10 @@ steps:
       sources: src/rtest/*.s
       out_dir: rtest/
 
+  - assemble:
+      sources: tests/bootstub.s
+      out: bootstub.bin
+
   - pack_image:
       format: runix_2mg
       out: runix.2mg
@@ -53,9 +57,24 @@ steps:
 
 run:
   disk: build/runix.2mg
+  load:
+    - { file: build/bootstub.bin, addr: 0x1000 }
   start: 0x1000
   max_instructions: 100000
 
 profiles:
+  # Smoke: boot to shell and halt cleanly at $FFF9
   halt:
     keys: ["halt\n"]
+  # Filesystem smoke (matches pim65 test_filesystem / test_halt shape)
+  pwd:
+    keys: ["pwd\nhalt\n"]
+  ls:
+    keys: ["ls\nhalt\n"]
+  # Rune smoke (matches pim65 test_bcd / test_pool entry)
+  testbcd1:
+    keys: ["cd rtest\ntestbcd1\nhalt\n"]
+    max_instructions: 500000
+  testpool:
+    keys: ["cd rtest\ntestpool\nhalt\n"]
+    max_instructions: 500000

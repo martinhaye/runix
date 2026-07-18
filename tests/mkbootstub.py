@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Create a boot stub binary for pim65 testing."""
+"""Create a boot stub binary for pim65 testing.
+
+Rotoskop builds the same bytes from tests/bootstub.s (see rotoskop.yaml).
+This script remains for the Make/pim65 path until cutover.
+"""
 
 # Boot stub that:
 # 1. Sets up IRQ handler at $FF00 that emulates Apple II ROM BRK behavior
