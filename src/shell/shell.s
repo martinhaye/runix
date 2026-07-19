@@ -59,7 +59,7 @@ lup:	lda inbuf,y
 	bne lup
 no:	clc
 	rts
-yes:	sec
+yes:	;sec		; we always arrive via beq
 	rts
 .endproc
 
