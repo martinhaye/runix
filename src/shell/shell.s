@@ -10,22 +10,25 @@
 ;*****************************************************************************
 .proc main
 	; input a command line
-@repl:	jsr rdlin
+repl:	jsr rdlin
+	; dispatch to pewth if heuristic passes
+	jsr ispewth
+	bcs gopew
 	; find space between program name and args
 	ldx inbuf
-	beq @fnden
+	beq fnden
 	ldy #0
-@cksp:	lda inbuf+1,y
+cksp:	lda inbuf+1,y
 	cmp #' '
-	beq @fnden
+	beq fnden
 	iny
 	dex
-	bne @cksp
-@fnden:	lda inbuf	; get old len
+	bne cksp
+fnden:	lda inbuf	; get old len
 	sty inbuf	; truncate to just prog name
 	ldx *-1		; cute way to get hi byte of inbuf ptr
 	cpy #0
-	beq @repl	; handle blank line
+	beq repl	; handle blank line
 	clc		; extra for space itself
 	sbc inbuf	; subtract len of program name
 	sta inbuf+1,y	; create new len/data string
@@ -34,9 +37,30 @@
 	sty zarg	; point at new string
 	lda #0
 	jsr progrun
-	bcc @repl
+	bcc repl
 	print "Error: command not found.\n"
-	jmp @repl
+	jmp repl
+gopew:	print "Pewth!\n"
+	jmp repl
+.endproc
+
+;*****************************************************************************
+.proc ispewth
+	ldx inbuf
+	beq no
+	ldy #1
+lup:	lda inbuf,y
+	cmp #'('
+	beq yes
+	cmp #'='
+	beq yes
+	iny
+	dex
+	bne lup
+no:	clc
+	rts
+yes:	sec
+	rts
 .endproc
 
 ;*****************************************************************************
