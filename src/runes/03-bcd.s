@@ -498,7 +498,12 @@ sub1:	sbc #modn		; self-mod above
 	eor #$FF		; negative - invert to get abs
 	adc #1
 pos:	tax			; to index table
-	; now calculate Qs[A+B] - Qs[|A-B|] - in BCD
+	; Quarter-squares basis:
+	; (a+b)(a+b) - (a-b)*(a-b)
+	; = aa+2ab+bb - (aa-2ab+bb)
+	; = aa-aa + 4ab + bb-bb
+	; = 4ab
+	; now calculate Qs[A+B] - Qs[|A-B|] ... in BCD
 	lda quarter_squares_low,y
 	sec
 	sed			; so fun to use decimal mode
@@ -1110,3 +1115,4 @@ quarter_squares_high:
     .byte $96 ; 196*196/4 = 9604
     .byte $97 ; 197*197/4 = 9702
     .byte $98 ; 198*198/4 = 9801
+
