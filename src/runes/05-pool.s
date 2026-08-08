@@ -200,35 +200,54 @@ dblfr:	fatal "pool-dbl-free"
 .endproc
 
 ;*****************************************************************************
+.proc _pool_qreduce
+; reduce size of last allocated blk to X bytes
+	ldy pool_objid
+	lda (pool_iptr),y
+	tay
+	sta tmp
+	txa
+	sta (pool_dptr),y
+	clc
+	adc tmp
+	ldy #0
+	sta (pool_dptr),y
+	rts
+.endproc
+
+;*****************************************************************************
 .proc _pool_setlen
 ; on entry, Y=objnum, X=requested len
 	sty pool_objid		; save obj id for later use if moving
 	iny
-	lda (pool_iptr),y
+	lda (pool_iptr),y	; obj dpage
 	sta pool_dptr+1
 	sta sma+2
 	sta smc+2
 	dey
-	lda (pool_iptr),y
+	lda (pool_iptr),y	; obj offset in dpg
 	tay
 	txa			; requested len
 	cmp (pool_dptr),y	; vs current len
 	beq nochg		; if len not changing, early out
   ; 40 cyc
 	; check if obj already at the end of its page (optimal)
-sma:	cpy $1001		; self-mod above - check byte 1 of dpage
+	tya
+	clc
+	adc (pool_dptr),y
+sma:	cmp $1001		; self-mod above - check byte 1 of dpage
 	bne moveit
 	; already at end of page - is there enough space for the new size?
 	sty smb+1
-	;txa			; requested len already in A
-	;sec			; C already set (because cpy was eq above)
+	txa			; requested len
+	;sec			; C already set (because cmp was eq above)
 smb:	adc #11			; add obj offset to calc new end of pg
 	bcs moveit		; if it would overflow page, move the obj
 	; new size fits - adj len and page end
 smc:	sta $1001		; store new end of pg
 	txa
 	sta (pool_dptr),y	; store new len
-  ; 65 cyc
+  ; 96  cyc
 nochg:	ldx pool_dptr+1		; exit with ptr in AX
 	tya
 	rts
