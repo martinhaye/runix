@@ -27,3 +27,4 @@ simulator/*.2mg
 # Temporary and old stuff
 tmp/
 old/
+src/runes/base_font.s
