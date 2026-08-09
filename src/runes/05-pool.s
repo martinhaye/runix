@@ -13,14 +13,16 @@
 	jmp _pool_free
 	jmp _pool_setlen
 	jmp _pool_resize
+	jmp _pool_qreduce
 	jmp _pool_total
 	.align 32,$EA
 
 ;*****************************************************************************
 ; Pool index page structure:
 ; 00: First data page
-; 01: Highest allocated object ID
-; 02..FF: pointers for objects 02..FE (all even, objs 0,1,3,5... are invalid)
+; 80: Highest allocated object ID
+; 01-7F: lo byte of pointers for objects 01..7F
+; 81-FF: hi byte of pointers for objects 01..7F
 ;
 ; Pool data page structure:
 ; 00: Offset of next free byte
@@ -30,23 +32,23 @@
 ;*****************************************************************************
 .proc _pool_init
 	lda #0
-	sta pool_iptr+1		; our zp pointers are always page pointers
-	sta pool_dptr+1
+	sta pool_ilptr	; our zp pointers always have fixed low byte
+	sta pool_dptr
+	sta pool_slowpath
+	tay
+	lda #$80
+	sta pool_ihptr
 	ldy #2
 	jsr progalloc		; allocate 2 pages - index and first data
-	stx pool_iptr+1
-	; Initialize index page
-	ldy #0
+	stx pool_ilptr+1
+	stx pool_ihptr+1
+	; First byte of index page points to first data page
 	inx
 	txa
-	sta (pool_iptr),y	; 00: first data page
-	iny
-	lda #0			; last allocated obj id
-	sta (pool_iptr),y
-	iny
-	; Clear the remainder of the index page
+	; Clear index page - first byte is the data page, rest are zero
+	ldy #0
+:	sta (pool_ilptr),y
 	lda #0
-:	sta (pool_iptr),y
 	iny
 	bne :-
 	; Now init the data page
@@ -62,7 +64,7 @@
 	iny
 	lda #2
 	sta (pool_dptr),y	; 00: offset of next free byte
-	lda pool_iptr+1		; return pool index page in A
+	lda pool_ilptr+1	; return pool index page in A
 	rts
 .endproc
 
@@ -71,29 +73,26 @@
 	sta pool_objlen		; save object len for later
 
 	; Find an unused id
-	ldy #1
-	lda (pool_iptr),y	; last obj id
-	tay
+	ldy #0
+	lda (pool_ihptr),y	; last allocated obj id
+	tay			; ...start scanning from there
 	clv			; use V to track number of passes
-	iny
 nxtid:	iny
-	bne :+
+	bpl :+
 	bvs idfull		; if second pass, give up
 	set_v			; prevent infinite rewinds
-	ldy #2
-:	iny			; check hi-byte for empty
-	lda (pool_iptr),y
-	bne nxtid
-fndid:	dey
-	sty pool_objid		; stash the id for now
-	tya			; remember ID for next alloc scan
 	ldy #1
-	sta (pool_iptr),y
+:	lda (pool_ihptr),y	; check hi byte for empty
+	bne nxtid
+fndid:	sty pool_objid		; stash the id for now
+	tya			; remember ID for next alloc scan
+	ldy #0
+	sta (pool_ihptr),y
 
 	; Find space on a data page
 alt:	; alternate entry point if obj id already known
 	ldy #0
-	lda (pool_iptr),y	; index's first data page to start scan
+	lda (pool_ilptr),y	; index's first data page to start scan
 chkpg:	sta pool_dptr+1
 	ldy #1
 	lda (pool_dptr),y	; offset of next free byte
@@ -110,10 +109,10 @@ newpg:	pagealloc		; allocate a new data page
 	stx pool_dptr+1
 	; link in at start of page list
 	ldy #0
-	lda (pool_iptr),y	; prev data page
-	sta (pool_dptr),y
+	lda (pool_ilptr),y	; prev data page
+	sta (pool_dptr),y	; now becomes second data page
 	txa			; new data page
-	sta (pool_iptr),y
+	sta (pool_ilptr),y	; becomes first data page
 	ldx #2			; put the new obj at the start of usable space
 	lda pool_objlen
 	sec
@@ -127,12 +126,10 @@ room:	sta (pool_dptr),y	; advance offset of next free byte
 	lda pool_objlen
 	sta (pool_dptr),y	; save len of new obj
 	ldy pool_objid
-	iny
 	lda pool_dptr+1
-	sta (pool_iptr),y	; record addr hi in index
-	dey
+	sta (pool_ihptr),y	; record addr hi in index
 	txa			; obj start again
-	sta (pool_iptr),y	; record addr lo in index
+	sta (pool_ilptr),y	; record addr lo in index
 	ldx pool_dptr+1		; on return: obj id in Y, addr in AX
 	rts
 
@@ -141,15 +138,14 @@ idfull:	fatal "pool-ids-full"
 
 ;*****************************************************************************
 .proc _pool_free
-	lda (pool_iptr),y	; data ptr lo
+	lda (pool_ilptr),y	; data ptr lo
 	sta pool_objoff
-	iny
-	lda (pool_iptr),y	; data page
+	lda (pool_ihptr),y	; data ptr hi (data page)
 	beq dblfr		; if already freed - error out
-	sta pool_dptr+1
+	sta pool_dptr+1		; data page
 	sta sma+2		; self-mod for move later
 	lda #0
-	sta (pool_iptr),y	; zero out the pointer (just hi-byte is sufficient)
+	sta (pool_ihptr),y	; zero out the pointer (just hi-byte is sufficient)
 	ldy pool_objoff
 	lda (pool_dptr),y	; get object's length
 	clc
@@ -157,27 +153,27 @@ idfull:	fatal "pool-ids-full"
 	ldy #1
 	cmp (pool_dptr),y	; check if this is last obj on page
 	beq islast
+	sta pool_slowpath	; mark that a slow path was taken
 	sta pool_objlen		; save len+1 for later use
 	sta sma+1		; self-mod for move later
 	; adjust index entries for objects following the freed one
-	lda (pool_iptr),y	; last allocated obj id (Y=1 already)
+	ldy #0
+	lda (pool_ihptr),y	; last allocated obj id
 	tay
 alup:	dey
-	lda (pool_iptr),y	; chk data page
-	dey
+	lda (pool_ihptr),y	; chk object's data page
 	cmp pool_dptr+1
 	bne anext
-	lda (pool_iptr),y	; data offset
+	lda (pool_ilptr),y	; object's data offset
 	cmp pool_objoff
 	bcc anext		; if blk is before freed one, skip it
 	sec			; already adjusted for len byte itself
 	sbc pool_objlen		; blk is moving
-	sta (pool_iptr),y
-anext:	cpy #2			; stop before we reach the header
+	sta (pool_ilptr),y
+anext:	cpy #1			; stop before we reach the header
 	bne alup
 	; now compact the data page
-	dey			; now Y=1
-	lda (pool_dptr),y	; next byte that would be allocated
+	lda (pool_dptr),y	; next byte that would be allocated (Y=1 already)
 	sec
 	sbc pool_objlen		; adjust offset
 	sta (pool_dptr),y
@@ -202,16 +198,17 @@ dblfr:	fatal "pool-dbl-free"
 ;*****************************************************************************
 .proc _pool_qreduce
 ; reduce size of last allocated blk to X bytes
+; Only safe if no other pool operations have been performed since last alloc
 	ldy pool_objid
-	lda (pool_iptr),y
+	lda (pool_ilptr),y	; object's data offset
 	tay
-	sta tmp
-	txa
-	sta (pool_dptr),y
+	sta sma+1		; self-modify for add later
+	txa			; requested new len
+	sta (pool_dptr),y	; store new len
 	clc
-	adc tmp
-	ldy #0
-	sta (pool_dptr),y
+sma:	adc #modn		; calculate new end of page (self-modified above)
+	ldy #1
+	sta (pool_dptr),y	; store new end of page
 	rts
 .endproc
 
@@ -219,19 +216,17 @@ dblfr:	fatal "pool-dbl-free"
 .proc _pool_setlen
 ; on entry, Y=objnum, X=requested len
 	sty pool_objid		; save obj id for later use if moving
-	iny
-	lda (pool_iptr),y	; obj dpage
+	lda (pool_ihptr),y	; obj dpage
 	sta pool_dptr+1
 	sta sma+2
 	sta smc+2
-	dey
-	lda (pool_iptr),y	; obj offset in dpg
+	lda (pool_ilptr),y	; obj offset in dpg
 	tay
 	txa			; requested len
 	cmp (pool_dptr),y	; vs current len
 	beq nochg		; if len not changing, early out
-  ; 40 cyc
-	; check if obj already at the end of its page (optimal)
+  ; 36 cyc
+	; check if obj already at the end of its page (for fast path)
 	tya
 	clc
 	adc (pool_dptr),y
@@ -241,7 +236,7 @@ sma:	cmp $1001		; self-mod above - check byte 1 of dpage
 	sty smb+1
 	txa			; requested len
 	;sec			; C already set (because cmp was eq above)
-smb:	adc #11			; add obj offset to calc new end of pg
+smb:	adc #modn		; add obj offset to calc new end of pg
 	bcs moveit		; if it would overflow page, move the obj
 	; new size fits - adj len and page end
 smc:	sta $1001		; store new end of pg
@@ -254,19 +249,20 @@ nochg:	ldx pool_dptr+1		; exit with ptr in AX
 
 moveit:	clc			; modified by _pool_resize to be sec
 	stx pool_newlen
-	bcs save
+	stx pool_slowpath	; mark that a slow path was taken
+	bcs save		; normal case, we don't save the data
 move2:	ldy pool_objid
 	jsr _pool_free		; collapse current space used by obj
 	lda pool_newlen
 	sta pool_objlen		; restore requested len
-	jmp _pool_alloc::alt	; re-allocate - alt entry because we know id
+	jmp _pool_alloc::alt	; finish by re-allocating - alt entry because we know id
 
 	; in resize mode: save original contents to a temp page
 save:	txa			; new len comes in X
 	cmp (pool_dptr),y	; check against old len
 	bcs :+
-	lda (pool_dptr),y
-:	cmp #0			; A is now min(origlen, newlen) - is it zero?
+	lda (pool_dptr),y	; clamp to min (newlen, oldlen)
+:	cmp #0			; A is now minlen - is it zero?
 	beq move2		; if min len is zero, no copying needed
 	sta _o2+1		; self-modify loop bounds
 	sta _i2+1
@@ -274,7 +270,7 @@ save:	txa			; new len comes in X
 	stx _o1+2		; self-modify out-copy loop
 	stx _i1+2		; self-modify in-copy loop
 	ldy pool_objid
-	lda (pool_iptr),y	; obj offset
+	lda (pool_ilptr),y	; obj offset
 	ldx #0
 outlup:	iny			; no need to copy len byte
 	lda (pool_dptr),y
@@ -319,7 +315,7 @@ inrt:	pagefree _i1+2		; free the temporary copy page
 	sta pool_nbytes+1
 	sta pool_npages
 pglup:	ldy #0
-	lda (pool_iptr),y	; link to data page
+	lda (pool_ilptr),y	; link to data page
 	beq fin			; if no data pages, we're done
 nxtpg:	sta pool_dptr+1
 	inc pool_npages		; count this page
@@ -346,7 +342,13 @@ pgend:	ldy #0
 	lda (pool_dptr),y	; next data page
 	bne nxtpg
 	; out: AX = total space used in pool, Y = total number of allocated pages
-fin:	ldax pool_nbytes
+fin:	clc
+	lda pool_slowpath
+	beq :+
+	sec			; set carry if any slow path was taken since last total
+:	lda #0
+	sta pool_slowpath
+	ldax pool_nbytes
 	ldy pool_npages
 	rts
 .endproc
@@ -360,3 +362,4 @@ pool_objoff:	.byt 0
 pool_npages:	.byt 0
 pool_nbytes:	.word 0
 pool_newlen:	.byt 0
+pool_slowpath:	.byt 0

@@ -30,6 +30,7 @@ test_pool:
 	lda #'O'
 	sta (ptmp),y
 	pool_total
+	php
 	sta tmp
 	stx tmp+1
 	sty tmp2
@@ -42,7 +43,11 @@ test_pool:
 	print "tot=%x "
 	lda tmp2
 	ldx #0
-	print "np=%x\n"
+	print "np=%x "
+	pla
+	and #1
+	ldx #0
+	print "C=%x\n"
 
 	; Test 2: re-fetch the object via obj id
 	pool_getptr obj1

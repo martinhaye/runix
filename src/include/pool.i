@@ -1,11 +1,12 @@
-; Compact pool of up to 126 variable-sized objects, 1-254 bytes. Each has an
-; even-numbered ID from 02..FE. Object data always starts with the length.
+; Compact pool of up to 127 variable-sized objects, 1-254 bytes. Each has an
+; ID from 01..7F. Object data always starts with the length.
 ;
-; Valid ids:   02, 04, 06...
-; Invalid ids: 00, 01, 03, 05...
+; Valid ids:   01, 02, 03, ... 7F
+; Invalid ids: 00, 80, 81, ... FF
 
-pool_iptr = _pool_zp	; low byte always zero
-pool_dptr = _pool_zp+2	; low byte always zero
+pool_ilptr	= _pool_zp	; low byte always zero
+pool_ihptr	= _pool_zp+2	; low byte always $80
+pool_dptr	= _pool_zp+4	; low byte always zero
 
 ;*****************************************************************************
 ; Rune vectors
@@ -14,7 +15,8 @@ v_pool_alloc	= pool_vecs+(1*3)
 v_pool_free	= pool_vecs+(2*3)
 v_pool_setlen	= pool_vecs+(3*3)
 v_pool_resize	= pool_vecs+(4*3)
-v_pool_total	= pool_vecs+(5*3)
+v_pool_qreduce	= pool_vecs+(5*3)
+v_pool_total	= pool_vecs+(6*3)
 
 ;*****************************************************************************
 ; Initialize a pool. Returns the new pool index page in A.
@@ -26,7 +28,8 @@ v_pool_total	= pool_vecs+(5*3)
 ; Set which pool to work on.
 .macro pool_select pool
 	ld_a pool
-	sta pool_iptr+1
+	sta pool_ilptr+1
+	sta pool_ihptr+1
 .endmacro
 
 ;*****************************************************************************
@@ -48,11 +51,9 @@ v_pool_total	= pool_vecs+(5*3)
 ; Get a pointer to the data for an obj in current pool -> AX
 .macro pool_getptr objnum
 	ld_y objnum
-	iny
-	lda (pool_iptr),y
+	lda (pool_ihptr),y
 	tax
-	dey
-	lda (pool_iptr),y
+	lda (pool_ilptr),y
 .endmacro
 
 ;*****************************************************************************
@@ -76,9 +77,19 @@ v_pool_total	= pool_vecs+(5*3)
 .endmacro
 
 ;*****************************************************************************
-; Add up how much space is used, and the total number of data pages
-; Out: AX - sum of object data sizes (including their length bytes)
+; pool_qreduce: Reduce the size of the last allocated object (only safe if
+;		no other pool operations have been performed since last alloc)
+.macro pool_resize newlen
+	ld_x newlen
+	jsr v_pool_qreduce
+.endmacro
+
+;*****************************************************************************
+; pool_total: Add up how much space is used, and the total number of data pages
+;             and whether any slow path was taken since last total
+;      AX - sum of object data sizes (including their length bytes)
 ;      Y - total number of allocated pages
+;      C - set if any slow path was taken since last total
 .macro pool_total
 	jsr v_pool_total
 .endmacro

@@ -18,7 +18,7 @@ bcd_ptr3 = $EE
 str_ptr1 = $E6
 str_ptr2 = $E8
 ; pool zero-page
-_pool_zp = $E2	; len 4
+_pool_zp = $E0	; len 6
 
 ;*****************************************************************************
 ; Rune vectors
