@@ -930,8 +930,9 @@ ld5:	lda $1111,x
 phex:	lda #'$'
 	jsr _cout
 	lda xreg
+	beq :+
 	jsr prbyte
-	lda areg
+:	lda areg
 	jsr prbyte
 	jmp next
 pbcd:	txa

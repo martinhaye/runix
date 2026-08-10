@@ -14,8 +14,8 @@ v_pool_init	= pool_vecs+(0*3)
 v_pool_alloc	= pool_vecs+(1*3)
 v_pool_free	= pool_vecs+(2*3)
 v_pool_setlen	= pool_vecs+(3*3)
-v_pool_resize	= pool_vecs+(4*3)
-v_pool_qreduce	= pool_vecs+(5*3)
+v_pool_qreduce	= pool_vecs+(4*3)
+v_pool_resize	= pool_vecs+(5*3)
 v_pool_total	= pool_vecs+(6*3)
 
 ;*****************************************************************************
@@ -79,7 +79,7 @@ v_pool_total	= pool_vecs+(6*3)
 ;*****************************************************************************
 ; pool_qreduce: Reduce the size of the last allocated object (only safe if
 ;		no other pool operations have been performed since last alloc)
-.macro pool_resize newlen
+.macro pool_qreduce newlen
 	ld_x newlen
 	jsr v_pool_qreduce
 .endmacro

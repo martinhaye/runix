@@ -12,8 +12,8 @@
 	jmp _pool_alloc
 	jmp _pool_free
 	jmp _pool_setlen
-	jmp _pool_resize
 	jmp _pool_qreduce
+	jmp _pool_resize
 	jmp _pool_total
 	.align 32,$EA
 
@@ -148,8 +148,8 @@ idfull:	fatal "pool-ids-full"
 	sta (pool_ihptr),y	; zero out the pointer (just hi-byte is sufficient)
 	ldy pool_objoff
 	lda (pool_dptr),y	; get object's length
-	clc
-	adc #1			; add 1 for len byte itself
+	sec
+	adc pool_objoff		; add object's offset to length, +1 for len byte itself
 	ldy #1
 	cmp (pool_dptr),y	; check if this is last obj on page
 	beq islast
@@ -196,23 +196,6 @@ dblfr:	fatal "pool-dbl-free"
 .endproc
 
 ;*****************************************************************************
-.proc _pool_qreduce
-; reduce size of last allocated blk to X bytes
-; Only safe if no other pool operations have been performed since last alloc
-	ldy pool_objid
-	lda (pool_ilptr),y	; object's data offset
-	tay
-	sta sma+1		; self-modify for add later
-	txa			; requested new len
-	sta (pool_dptr),y	; store new len
-	clc
-sma:	adc #modn		; calculate new end of page (self-modified above)
-	ldy #1
-	sta (pool_dptr),y	; store new end of page
-	rts
-.endproc
-
-;*****************************************************************************
 .proc _pool_setlen
 ; on entry, Y=objnum, X=requested len
 	sty pool_objid		; save obj id for later use if moving
@@ -225,11 +208,11 @@ sma:	adc #modn		; calculate new end of page (self-modified above)
 	txa			; requested len
 	cmp (pool_dptr),y	; vs current len
 	beq nochg		; if len not changing, early out
-  ; 36 cyc
-	; check if obj already at the end of its page (for fast path)
+  ; 37 cyc
+	; check if obj is already the last on its page (for fast path)
 	tya
-	clc
-	adc (pool_dptr),y
+	sec			; add 1 for len byte itself
+	adc (pool_dptr),y	; calculate end of object
 sma:	cmp $1001		; self-mod above - check byte 1 of dpage
 	bne moveit
 	; already at end of page - is there enough space for the new size?
@@ -260,7 +243,7 @@ move2:	ldy pool_objid
 	; in resize mode: save original contents to a temp page
 save:	txa			; new len comes in X
 	cmp (pool_dptr),y	; check against old len
-	bcs :+
+	bcc :+
 	lda (pool_dptr),y	; clamp to min (newlen, oldlen)
 :	cmp #0			; A is now minlen - is it zero?
 	beq move2		; if min len is zero, no copying needed
@@ -270,7 +253,8 @@ save:	txa			; new len comes in X
 	stx _o1+2		; self-modify out-copy loop
 	stx _i1+2		; self-modify in-copy loop
 	ldy pool_objid
-	lda (pool_ilptr),y	; obj offset
+	lda (pool_ilptr),y	; obj offset again
+	tay
 	ldx #0
 outlup:	iny			; no need to copy len byte
 	lda (pool_dptr),y
@@ -293,6 +277,23 @@ _i2:	cpx #11			; self-modified above - len to copy
 inrt:	pagefree _i1+2		; free the temporary copy page
 	rts
 
+.endproc
+
+;*****************************************************************************
+.proc _pool_qreduce
+; reduce size of last allocated blk to X bytes
+; Only safe if no other pool operations have been performed since last alloc
+	ldy pool_objid
+	lda (pool_ilptr),y	; object's data offset
+	tay
+	sta sma+1		; self-modify for add later
+	txa			; requested new len
+	sta (pool_dptr),y	; store new len
+	clc
+sma:	adc #modn		; calculate new end of page (self-modified above)
+	ldy #1
+	sta (pool_dptr),y	; store new end of page
+	rts
 .endproc
 
 ;*****************************************************************************
