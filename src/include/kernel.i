@@ -19,7 +19,7 @@ kpageallocfree	= kernel_vecs+(8*3)
 .endmacro
 
 .macro pagefree pagenum
-	ld_y pagenum
+	ld_x pagenum
 	sec
 	jsr kpageallocfree
 .endmacro

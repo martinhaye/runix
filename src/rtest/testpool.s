@@ -70,9 +70,8 @@ test_pool:
 	ldax ptr2
 	print "str=%s\n"
 
-	; resize last obj
+	; Test 4: resize last obj
 	print "T4: "
-	lda obj2
 	pool_resize obj2, #4
 	stax ptr2
 	print "p=%x "
@@ -82,6 +81,23 @@ test_pool:
 	ldax ptr2
 	print "str=%s "
 	jsr prtotal
+
+	; Test 5: resize non-last obj
+	print "T5a: "
+	pool_resize obj1, #4
+	stax ptmp
+	print "p=%x "
+	jsr prtotal
+	print "T5b: "
+	pool_getptr obj1
+	print "p=%x "
+	print "str=%s "
+	jsr crout
+	print "T5c: "
+	pool_getptr obj2
+	print "p2=%x "
+	print "str=%s "
+	jsr crout
 
 	rts
 

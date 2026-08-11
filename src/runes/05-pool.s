@@ -148,20 +148,21 @@ idfull:	fatal "pool-ids-full"
 	sta (pool_ihptr),y	; zero out the pointer (just hi-byte is sufficient)
 	ldy pool_objoff
 	lda (pool_dptr),y	; get object's length
+	tax			; stash for later use
 	sec
 	adc pool_objoff		; add object's offset to length, +1 for len byte itself
 	ldy #1
 	cmp (pool_dptr),y	; check if this is last obj on page
 	beq islast
-	sta pool_slowpath	; mark that a slow path was taken
-	sta pool_objlen		; save len+1 for later use
-	sta sma+1		; self-mod for move later
+	inx			; calc len+1 - that's the amount that's collapsing
+	stx pool_slowpath	; mark that a slow path was taken
+	stx pool_objlen		; save len+1 for later use
+	stx sma+1		; self-mod for move later
 	; adjust index entries for objects following the freed one
 	ldy #0
 	lda (pool_ihptr),y	; last allocated obj id
 	tay
-alup:	dey
-	lda (pool_ihptr),y	; chk object's data page
+alup:	lda (pool_ihptr),y	; chk object's data page
 	cmp pool_dptr+1
 	bne anext
 	lda (pool_ilptr),y	; object's data offset
@@ -170,10 +171,11 @@ alup:	dey
 	sec			; already adjusted for len byte itself
 	sbc pool_objlen		; blk is moving
 	sta (pool_ilptr),y
-anext:	cpy #1			; stop before we reach the header
-	bne alup
+anext:	dey			; process all objs
+	bne alup		; don't do offset zero (it's not an obj)
 	; now compact the data page
-	lda (pool_dptr),y	; next byte that would be allocated (Y=1 already)
+	iny			; now Y=1
+	lda (pool_dptr),y	; next byte that would be allocated
 	sec
 	sbc pool_objlen		; adjust offset
 	sta (pool_dptr),y
@@ -225,7 +227,7 @@ smb:	adc #modn		; add obj offset to calc new end of pg
 smc:	sta $1001		; store new end of pg
 	txa
 	sta (pool_dptr),y	; store new len
-  ; 96  cyc
+  ; 73  cyc
 nochg:	ldx pool_dptr+1		; exit with ptr in AX
 	tya
 	rts
@@ -266,6 +268,7 @@ _o2:	cpx #11			; self-modified above - len to copy
 	jsr move2
 	; restore original contents (up to new len)
 	tay			; obj offset from alloc was in AX, get offset into Y
+	pha			; save offset for returning later
 	ldx #0
 	; note - len already set by pool_alloc above, so we only need to copy data bytes
 inlup:	iny
@@ -275,6 +278,8 @@ _i1:	lda modaddr,x
 _i2:	cpx #11			; self-modified above - len to copy
 	bne inlup
 inrt:	pagefree _i1+2		; free the temporary copy page
+	pla			; return new offset...
+	ldx pool_dptr+1		; ...and page
 	rts
 
 .endproc
