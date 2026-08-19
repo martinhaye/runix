@@ -329,22 +329,23 @@ nxtpg:	sta pool_dptr+1
 	lda (pool_dptr),y
 	sta pool_objoff		; save offset of last obj on page
 	iny
+	tya
 objlup:	cpy pool_objoff
 	beq pgend		; if at end of page, move to next
-	lda (pool_dptr),y	; get length of obj
-	sta pool_objlen		; save for later
-	sec			; add 1 to account for length byte itself
+	sec			; again adding 1 for the length byte itself
+	adc (pool_dptr),y
+	tay
+	bcc objlup
+corr:	fatal "pool-pg-corrupt"
+pgend:	lda pool_objoff		; end of page
+	sec
+	sbc #2			; minus 2 byte header = total data bytes
+	clc
 	adc pool_nbytes
 	sta pool_nbytes
 	bcc :+
 	inc pool_nbytes+1
-:	tya
-	sec			; again adding 1 for the length byte itself
-	adc pool_objlen
-	tay
-	bcc objlup
-corr:	fatal "pool-pg-corrupt"
-pgend:	ldy #0
+:	ldy #0
 	lda (pool_dptr),y	; next data page
 	bne nxtpg
 	; out: AX = total space used in pool, Y = total number of allocated pages
