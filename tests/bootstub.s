@@ -1,4 +1,4 @@
-; Boot stub for emulator tests (same bytes as tests/mkbootstub.py).
+; Boot stub for emulator tests.
 ; Loaded at $1000; loads disk block 0 to $2000 and jumps there with X=$20 (slot 2).
 ;
 ; Also installs an IRQ/BRK handler at $FF00 that mirrors Apple II ROM BRK

@@ -71,12 +71,10 @@ profiles:
   # Smoke: boot to shell and halt cleanly at $FFF9
   halt:
     keys: ["halt\n"]
-  # Filesystem smoke (matches pim65 test_filesystem / test_halt shape)
   pwd:
     keys: ["pwd\nhalt\n"]
   ls:
     keys: ["ls\nhalt\n"]
-  # Rune smoke (matches pim65 test_bcd / test_pool entry)
   testbcd1:
     keys: ["cd rtest\ntestbcd1\nhalt\n"]
     max_instructions: 500000

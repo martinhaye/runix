@@ -1,2 +1,0 @@
-# Test dependencies for Runix
-pytest>=7.0.0

@@ -1,4 +1,4 @@
-; Halts pim65 simulation
+; Halts the emulator (JMP $FFF9)
 
 .include "base.i"
 

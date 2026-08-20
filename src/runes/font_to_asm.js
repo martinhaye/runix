@@ -1,4 +1,4 @@
-// Convert base_font.txt → assembly (stdout). Port of font_to_asm.py for Rotoskop generate.
+// Convert base_font.txt → assembly (stdout) for Rotoskop generate.
 function parseFont(text) {
   var lines = text.split(/\r?\n/);
   var font = {};

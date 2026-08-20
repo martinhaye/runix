@@ -115,56 +115,56 @@ ldstr "Foobar"    ; points A/X to an inline length-prefixed string
 
 ## Build and Test
 
+Build, emulate, and test are all driven by Rotoskop via `rotoskop.yaml`.
+
 ### Prerequisites
 
-- cc65 tools: `ca65` and `ld65`
-- Python 3
-- `pytest` for the integration test suite
-- Install Python dependencies with `pip install -r requirements.txt -r tests/requirements.txt`
+- Rotoskop (`rotoskop` on `PATH`)
+- Python 3 (used by `deploy.sh` / `mdns_chk.py` and by `lsrunix.py`)
 
 ### Build Outputs
 
-- `make` builds everything into `build/`
-- Each assembly source is assembled to `.o`, linked to a raw `.bin`, and also gets a `.lst` listing
-- `mkrunix.py` then packs those binaries into `build/runix.2mg`
-- The image layout mirrors how Runix is organized at runtime:
-  - root contains `runix`
+- `rotoskop build` runs the steps in `rotoskop.yaml` and writes everything under `build/`
+- Font data is generated from `src/runes/base_font.txt` to `build/generated/base_font.s`
+- Sources are assembled to raw binaries (`boot.bin`, `kernel.bin`, `shell.bin`, plus `runes/`, `bin/`, `demos/`, `rtest/`)
+- `tests/bootstub.s` is assembled to `build/bootstub.bin` so the emulator can load block 0 the same way every run
+- Those binaries are packed into `build/runix.2mg`. The image layout mirrors runtime:
+  - root contains `runix` (the kernel)
   - subdirectories contain `runes`, `bin` (including `shell`), `demos`, and `rtest`
-- `src/runes/base_font.s` is generated from `src/runes/base_font.txt` during the build
 
 ### Common Commands
 
-- `make`: build `build/runix.2mg`
-- `make test`: build the image, then run the Runix integration tests
-- `make -C tests test-verbose`: run tests with uncaptured output
-- `make -C tests test-<name>`: run one test file such as `make -C tests test-boot`
-- `make deploy`: optionally rsync the image to `diskserver.local` if it is reachable
-- `make clean`: remove build artifacts
+- `rotoskop build`: build `build/runix.2mg`
+- `rotoskop test`: rebuild if dirty, then run the integration tests
+- `rotoskop test halt testbcd1`: run named cases (stems or globs such as `testbcd*`)
+- `rotoskop test -v`: print instruction counts
+- `rotoskop run`: boot the image in the emulator (`run:` in `rotoskop.yaml`)
+- `rotoskop run --profile halt`: overlay a named profile (keyboard input, instruction cap)
+- `./deploy.sh`: rsync the image to `diskserver.local` if that host is reachable
+- `rm -rf build`: remove build artifacts
+- `python3 lsrunix.py build/runix.2mg`: print the image directory tree
 
 ### Test Infrastructure
 
-- Runix feature tests live in `tests/` and are written with `pytest`
-- The test harness boots `build/runix.2mg` inside the in-process `pim65` simulator
-- `tests/mkbootstub.py` generates `tests/bootstub.bin`, which the fixtures use to load block 0 and enter Runix the same way every test does
-- Most tests drive the shell by injecting command lines, then assert against screen output and simulator stderr
-- For lower-level feature work, the usual pattern is:
-  1. add a small assembly test program under `src/rtest/`
-  2. let `make` include it in the disk image under `/rtest`
-  3. add a `tests/test_*.py` case that boots Runix, runs that program from the shell, and checks the output
-- If you are changing the simulator itself, its separate tests live in `pim65/tests/`
+- Shell-level cases live in `tests/*.test`
+- Rune/program cases live as `; @test` comments at the top of `src/rtest/*.s`
+- `rotoskop.yaml` `tests.files` lists both globs; each case boots `build/runix.2mg` with `build/bootstub.bin` loaded at `$1000`
+- Directives such as `@test keys`, `@test expect`, `@test stop success`, and `@test max_instructions` drive keyboard input and screen assertions
+- For lower-level feature work:
+  1. add a small assembly program under `src/rtest/` (it is packed into `/rtest` automatically)
+  2. put `; @test` directives on that file, or add a `tests/*.test` that runs it from the shell
 
 ### Image Builder Notes
 
-`mkrunix.py` creates the `.2mg` image, writes block 0, lays out the root directory and subdirectories, and then copies in the built binaries for `runix`, `runes`, `bin`, `demos`, and `rtest`.
+The `pack_image` step in `rotoskop.yaml` creates the `.2mg` image, writes block 0, lays out the root directory and subdirectories, and copies in the built binaries for `runix`, `runes`, `bin`, `demos`, and `rtest`.
 
 ## Assembly Language Notes
 
-### cc65 Toolchain
+### Rotoskop assembler
 
-- `ca65` assembles sources to object files
-- `ld65` links them into raw binaries using `runix.cfg`
-- `-t none` is used for the 6502 bare-metal target
-- The linker config provides the final memory map and vector placement
+- `rotoskop assemble` (and the `assemble:` steps in `rotoskop.yaml`) produce raw 6502 binaries
+- Include search paths come from `include_dirs` in `rotoskop.yaml` (`src/include`)
+- Use `rotoskop assemble source.s -o out.bin --list out.lst` when you want a listing file
 
 ### 6502 Conventions
 
@@ -176,6 +176,6 @@ ldstr "Foobar"    ; points A/X to an inline length-prefixed string
 ## Development Workflow
 
 1. Edit sources in `src/`
-2. If the change needs focused runtime coverage, add or update an `src/rtest/*.s` helper and a matching `tests/test_*.py`
-3. Run `make test` for the normal loop, or `make -C tests test-<name>` when iterating on one area
-4. Use `build/runix.2mg` in your emulator or `make deploy` when you want manual interactive testing
+2. If the change needs focused runtime coverage, add or update an `src/rtest/*.s` helper and `; @test` directives (or a `tests/*.test`)
+3. Run `rotoskop test` for the normal loop, or `rotoskop test <name>` when iterating on one area
+4. Use `rotoskop run` interactively, or `./deploy.sh` when you want the image on the disk server
