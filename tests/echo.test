@@ -1,0 +1,3 @@
+; @test keys echo hello\nhalt\n
+; @test stop success
+; @test expect hello

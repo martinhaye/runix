@@ -1,0 +1,3 @@
+; @test keys cd runes\npwd\nhalt\n
+; @test stop success
+; @test expect runes

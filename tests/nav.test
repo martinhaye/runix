@@ -1,0 +1,4 @@
+; @test keys pwd\nls\ncd runes\npwd\nls\ncd ..\npwd\nhalt\n
+; @test max_instructions 200000
+; @test stop success
+; @test expect /

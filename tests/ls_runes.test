@@ -1,0 +1,3 @@
+; @test keys cd runes\nls\nhalt\n
+; @test stop success
+; @test expect 02-font

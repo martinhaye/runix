@@ -1,4 +1,25 @@
 ; BCD Rune Test Program
+; @test keys cd rtest\ntestbcd1\nhalt\n
+; @test max_instructions 500000
+; @test stop success
+; @test expect T1: '123' = 123.
+; @test expect T2: '-123' = -123.
+; @test expect T3a: '00123' = 123.
+; @test expect T3b: '0' = 0.
+; @test expect T4a: inc 123 = 124.
+; @test expect T4b: inc -123 = -122.
+; @test expect T4c: inc -1 = 0.
+; @test expect T5: inc 99 = 100.
+; @test expect T6: inc 99999 = 100000.
+; @test expect T7: dec 123 = 122.
+; @test expect T8: dec 10000 = 9999.
+; @test expect T9: dec 0 = -1.
+; @test expect T10: cmp 123 vs 123 = $00.
+; @test expect T11a: cmp 122 vs 123 = $FFFF.
+; @test expect T11b: cmp -12 vs 12 = $FFFF.
+; @test expect T12a: cmp 123 vs 122 = $01.
+; @test expect T12b: cmp 12 vs -12 = $01.
+; @test expect T12c: cmp -12 vs -13 = $01.
 
 .include "base.i"
 .include "text.i"

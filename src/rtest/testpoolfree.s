@@ -1,4 +1,11 @@
 ; Pool free characterization test
+; @test keys cd rtest\ntestpoolfree\nhalt\n
+; @test max_instructions 100000
+; @test stop success
+; @test expect Testing pool free:
+; @test expect T1: HELLO
+; @test expect T2: free
+; @test expect T3: unexpected success
 
 .include "base.i"
 .include "text.i"

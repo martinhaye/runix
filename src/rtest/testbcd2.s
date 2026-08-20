@@ -1,4 +1,29 @@
 ; BCD Rune Test Program
+; @test keys cd rtest\ntestbcd2\nhalt\n
+; @test max_instructions 500000
+; @test stop success
+; @test expect T13: 123 + 456 = 579.
+; @test expect T14: 99999 + 3 = 100002.
+; @test expect T15: 999999 + 3 = 1000002.
+; @test expect T16: 4 + 9999 = 10003.
+; @test expect T17: 5 + 99999 = 100004.
+; @test expect T18: -5 + -3 = -8.
+; @test expect T19a: 5 + -3 = 2.
+; @test expect T19b: 5 + -8 = -3.
+; @test expect T20a: -5 + 2 = -3.
+; @test expect T20b: -5 + 8 = 3.
+; @test expect T21: 456 - 123 = 333.
+; @test expect T22: 1000 - 3 = 997.
+; @test expect T23: 10000 - 4 = 9996.
+; @test expect T24a: -5 - -3 = -2.
+; @test expect T24b: -5 - -8 = 3.
+; @test expect T25a: -5 - 3 = -8
+; @test expect T25b: 5 - -8 = 13.
+; @test expect T26: 123 * 45 = 5535.
+; @test expect T27: 12 * 345 = 4140.
+; @test expect T28: 12345 * 87654 = 1082088630.
+; @test expect T29a: -2 * 3 = -6.
+; @test expect T29b: -2 * -3 = 6.
 
 .include "base.i"
 .include "text.i"

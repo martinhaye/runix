@@ -1,4 +1,9 @@
 ; Pool rune characterization test
+; @test keys cd rtest\ntestpool\nhalt\n
+; @test max_instructions 500000
+; @test stop success
+; @test expect T1: id=$01 tot=$06 np=$01
+; @test expect T2: str=HELLO
 
 .include "base.i"
 .include "text.i"

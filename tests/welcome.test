@@ -1,0 +1,4 @@
+; @test max_instructions 10000
+; @test stop limit
+; @test expect Welcome to Runix
+; @test expect #

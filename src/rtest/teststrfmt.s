@@ -1,4 +1,11 @@
 ; String formatting characterization test
+; @test keys cd rtest\nteststrfmt\nhalt\n
+; @test max_instructions 100000
+; @test stop success
+; @test expect Testing strings:
+; @test expect T1: inline literal
+; @test expect T2: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+; @test expect T3: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 
 .include "base.i"
 
